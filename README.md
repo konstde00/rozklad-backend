@@ -32,6 +32,15 @@
 $ npm install
 ```
 
+## Environment Variables
+For local development, you need to add a .env file in the root directory of the project with the following content:
+
+```env
+DATABASE_URL="mysql://root:password@localhost:3306/db"
+```
+
+This configuration sets up the connection url to your local MySQL database.
+
 ## Compile and run the project
 
 ```bash
