@@ -11,7 +11,7 @@ CREATE TABLE `classrooms` (
 
 -- CreateTable
 CREATE TABLE `events` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `title` VARCHAR(100) NOT NULL,
     `description` TEXT NULL,
     `day_of_week` ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE `group_subjects` (
 
 -- CreateTable
 CREATE TABLE `schedules` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(100) NOT NULL,
     `owner_id` BIGINT NOT NULL,
     `semester_id` BIGINT NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE `semesters` (
 
 -- CreateTable
 CREATE TABLE `student_groups` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(100) NOT NULL,
     `study_year` INTEGER NOT NULL,
     `students_count` INTEGER NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE `student_groups` (
 
 -- CreateTable
 CREATE TABLE `subjects` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(100) NOT NULL,
     `hours_per_semester` INTEGER NOT NULL,
     `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
@@ -96,7 +96,7 @@ CREATE TABLE `teacher_subjects` (
 
 -- CreateTable
 CREATE TABLE `teachers` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `max_hours_per_week` INTEGER NOT NULL,
     `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
     `updated_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
@@ -106,7 +106,7 @@ CREATE TABLE `teachers` (
 
 -- CreateTable
 CREATE TABLE `users` (
-    `id` BIGINT NOT NULL,
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(50) NOT NULL,
     `email` VARCHAR(100) NOT NULL,
     `password` VARCHAR(255) NOT NULL,
