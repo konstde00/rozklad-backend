@@ -230,13 +230,13 @@ components:
     GenerateScheduleRequest:
       type: object
       required:
-        - semester
+        - semesterId
       properties:
-        semester:
-          type: string
-          description: Semester for which the schedule is to be generated
+        semesterId:
+          type: number
+          description: Semester id for which the schedule is to be generated
       example:
-        semester: "Spring 2025"
+        semester: 123
 
     Classroom:
       type: object
@@ -1183,7 +1183,6 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  # Newly Added Semesters Endpoints
   /v1/semesters:
     post:
       tags:
