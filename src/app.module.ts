@@ -4,25 +4,13 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { connectionSource } from './config/ormconfig';
 
+import { ConfigModule } from '@nestjs/config';
+import { ClassroomsModule } from './classrooms/classrooms.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { SemestersModule } from './semesters/ semesters.module';
+
 @Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
-      imports: undefined,
-      useFactory: async () => {
-        await connectionSource.initialize();
-        return {
-          type: 'mysql',
-          host: 'localhost',
-          port: 3306,
-          username: 'user',
-          password: 'password',
-          database: 'db',
-          entities: [],
-          synchronize: false,
-        };
-      }
-    }),
-  ],
+  imports: [PrismaModule, ClassroomsModule, SemestersModule],
   controllers: [AppController],
   providers: [AppService],
 })
