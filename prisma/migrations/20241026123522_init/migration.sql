@@ -109,8 +109,8 @@ CREATE TABLE `users` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(50) NOT NULL,
     `email` VARCHAR(100) NOT NULL,
-    `password` VARCHAR(255) NOT NULL,
-    `role` ENUM('student', 'teacher', 'admin') NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `role` ENUM('student', 'teacher', 'faculty_admin', 'system_admin') NOT NULL,
     `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
     `updated_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
 

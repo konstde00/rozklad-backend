@@ -108,14 +108,14 @@ model teachers {
 }
 
 model users {
-  id         BigInt      @id @default(autoincrement())
-  username   String      @db.VarChar(50)
-  email      String      @unique(map: "email") @db.VarChar(100)
-  password   String      @db.VarChar(255)
-  role       users_role
-  created_at DateTime?   @default(now()) @db.Timestamp(0)
-  updated_at DateTime?   @default(now()) @db.Timestamp(0)
-  teachers   teachers?
+  id              BigInt      @id @default(autoincrement())
+  username        String      @db.VarChar(50)
+  email           String      @unique(map: "email") @db.VarChar(100)
+  password_hash   String      @db.VarChar(255)
+  role            users_role
+  created_at      DateTime?   @default(now()) @db.Timestamp(0)
+  updated_at      DateTime?   @default(now()) @db.Timestamp(0)
+  teachers        teachers?
 }
 
 enum events_day_of_week {
@@ -131,5 +131,6 @@ enum events_day_of_week {
 enum users_role {
   student
   teacher
-  admin
+  faculty_admin
+  system_admin
 }

@@ -7,11 +7,13 @@ import {
   Param,
   Patch,
   Delete,
-  ParseIntPipe,
+  ParseIntPipe, UseGuards,
 } from '@nestjs/common';
 import { ClassroomsService } from './classrooms.service';
 import { CreateClassroomDto } from './dto/create-classroom.dto';
 import { UpdateClassroomDto } from './dto/update-classroom.dto';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('/v1/classrooms')
 export class ClassroomsController {
