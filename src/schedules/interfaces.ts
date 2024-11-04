@@ -1,16 +1,17 @@
+// interfaces.ts
 
 export interface Event {
   id?: bigint;
   title: string;
   description?: string;
-  dayOfWeek: DayOfWeek;
-  startTime: Date;
-  endTime: Date;
-  scheduleId: number;
-  groupId: bigint;
-  teacherId: bigint;
-  subjectId: bigint;
-  classroomId: number;
+  day_of_week: string;
+  start_time: Date;
+  end_time: Date;
+  schedule_id: number;
+  group_id: bigint;
+  teacher_id: bigint;
+  subject_id: bigint;
+  classroom_id: number;
 }
 
 export enum DayOfWeek {
@@ -43,4 +44,14 @@ export interface TeacherAvailability {
 export interface ClassroomAvailability {
   classroomId: number;
   capacity: number;
+}
+
+export interface DataService {
+  semesters: any[];
+  studentGroups: any[];
+  subjects: any[];
+  teachers: any[];
+  classrooms: any[];
+  teacherSubjects: any[];
+  groupSubjects: any[];
 }

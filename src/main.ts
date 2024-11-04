@@ -22,7 +22,7 @@ async function bootstrap() {
   };
 
   const bestSchedule
-    = await runGeneticAlgorithm(geneticAlgorithmConfig, data, 1n);
+    = await runGeneticAlgorithm(geneticAlgorithmConfig, data);
   console.log('Best Schedule:', bestSchedule);
 
   const app = await NestFactory.create(AppModule);

@@ -47,11 +47,13 @@ export class SchedulesService {
         create: [
           {
             title: 'Sample Event',
-            description: 'This is a sample event',
             day_of_week: 'Monday',
             start_time: new Date('1970-01-01T09:00:00Z'),
             end_time: new Date('1970-01-01T10:30:00Z'),
             group_id: BigInt(1),
+            teacher_id: BigInt(1),
+            subject_id: BigInt(1),
+            classroom_id: 1,
           },
         ],
       }

@@ -1,127 +1,171 @@
-// fitnessFunction.ts
-
-import {
-  schedules as PrismaSchedule,
-  events as PrismaEvent,
-} from '@prisma/client';
+import { WeeklySchedule, WeeklyEvent } from './types';
+import { events_day_of_week } from '@prisma/client';
+import { DataService } from '../interfaces';
 
 export function calculateFitness(
-  schedule: PrismaSchedule & { events: PrismaEvent[] }
+  schedule: WeeklySchedule,
+  data: DataService
 ): number {
   let fitness = 0;
 
-  // Constraints penalties
+  // Existing penalties
   const groupConflicts = countGroupConflicts(schedule.events);
-  const scheduleConflicts = countScheduleConflicts(schedule.events);
+  const teacherConflicts = countTeacherConflicts(schedule.events);
+  const classroomConflicts = countClassroomConflicts(schedule.events);
 
   // Penalize conflicts
-  fitness -= groupConflicts * 10;
-  fitness -= scheduleConflicts * 5;
+  fitness -= groupConflicts * 100;
+  fitness -= teacherConflicts * 100;
+  fitness -= classroomConflicts * 100;
+
+  // Penalty for not meeting hours_per_semester
+  const hoursMismatchPenalty = calculateHoursMismatchPenalty(
+    schedule.events,
+    data
+  );
+  fitness -= hoursMismatchPenalty * 50; // Adjust multiplier as needed
 
   return fitness;
 }
 
-function countGroupConflicts(events: PrismaEvent[]): number {
-  // Map to store events per group per day
-  const groupEventsMap = new Map<
+// Function to calculate penalty for not meeting hours per semester
+function calculateHoursMismatchPenalty(
+  events: WeeklyEvent[],
+  data: DataService
+): number {
+  let penalty = 0;
+  const groupSubjectHours = new Map<string, number>();
+
+  events.forEach((event) => {
+    const key = `${event.groupId}-${event.subjectId}`;
+    const hours = 0.75; // Each lesson is 0.75 hours
+
+    if (groupSubjectHours.has(key)) {
+      groupSubjectHours.set(key, groupSubjectHours.get(key)! + hours);
+    } else {
+      groupSubjectHours.set(key, hours);
+    }
+  });
+
+  // Calculate expected total hours
+  groupSubjectHours.forEach((scheduledHours, key) => {
+    const [groupIdStr, subjectIdStr] = key.split('-');
+    const subjectId = BigInt(subjectIdStr);
+
+    const subject = data.subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+
+    const requiredHours = subject.hours_per_semester;
+
+    if (scheduledHours < requiredHours) {
+      penalty += requiredHours - scheduledHours;
+    } else if (scheduledHours > requiredHours) {
+      penalty += scheduledHours - requiredHours;
+    }
+  });
+
+  return penalty;
+}
+
+// Helper function to calculate the number of weeks in the semester
+function calculateSemesterWeeks(startDate: Date, endDate: Date): number {
+  const msInWeek = 7 * 24 * 60 * 60 * 1000;
+  const weeks = Math.ceil((endDate.getTime() - startDate.getTime()) / msInWeek);
+  return weeks;
+}
+
+function countGroupConflicts(events: WeeklyEvent[]): number {
+  let conflicts = 0;
+  const groupSchedule = new Map<
     bigint,
-    Map<string, { startTime: Date; endTime: Date }[]>
+    Map<events_day_of_week, Set<number>>
   >();
 
-  let conflicts = 0;
-
   events.forEach((event) => {
-    const groupId = event.group_id;
-    const dayOfWeek = event.day_of_week; // e.g., 'Monday'
-    const startTime = event.start_time;
-    const endTime = event.end_time;
+    const { groupId, dayOfWeek, timeSlot } = event;
 
-    if (!groupEventsMap.has(groupId)) {
-      groupEventsMap.set(groupId, new Map());
+    if (!groupSchedule.has(groupId)) {
+      groupSchedule.set(groupId, new Map());
     }
 
-    const dayEvents = groupEventsMap.get(groupId)!;
+    const daySchedule = groupSchedule.get(groupId)!;
 
-    if (!dayEvents.has(dayOfWeek)) {
-      dayEvents.set(dayOfWeek, []);
+    if (!daySchedule.has(dayOfWeek)) {
+      daySchedule.set(dayOfWeek, new Set());
     }
 
-    const eventsList = dayEvents.get(dayOfWeek)!;
+    const timeSlots = daySchedule.get(dayOfWeek)!;
 
-    // Check for overlaps with existing events
-    for (const existingEvent of eventsList) {
-      if (
-        isOverlapping(
-          startTime.getTime(),
-          endTime.getTime(),
-          existingEvent.startTime.getTime(),
-          existingEvent.endTime.getTime()
-        )
-      ) {
-        conflicts += 1;
-        break; // Count each conflict once
-      }
+    if (timeSlots.has(timeSlot)) {
+      conflicts += 1;
+    } else {
+      timeSlots.add(timeSlot);
     }
-
-    eventsList.push({
-      startTime: startTime,
-      endTime: endTime,
-    });
   });
 
   return conflicts;
 }
 
-function countScheduleConflicts(events: PrismaEvent[]): number {
-  // Map to store all events per day
-  const allEventsByDay = new Map<
-    string,
-    { startTime: Date; endTime: Date }[]
+function countTeacherConflicts(events: WeeklyEvent[]): number {
+  let conflicts = 0;
+  const teacherSchedule = new Map<
+    bigint,
+    Map<events_day_of_week, Set<number>>
   >();
 
-  let conflicts = 0;
-
   events.forEach((event) => {
-    const dayOfWeek = event.day_of_week;
-    const startTime = event.start_time;
-    const endTime = event.end_time;
+    const { teacherId, dayOfWeek, timeSlot } = event;
 
-    if (!allEventsByDay.has(dayOfWeek)) {
-      allEventsByDay.set(dayOfWeek, []);
+    if (!teacherSchedule.has(teacherId)) {
+      teacherSchedule.set(teacherId, new Map());
     }
 
-    const eventsList = allEventsByDay.get(dayOfWeek)!;
+    const daySchedule = teacherSchedule.get(teacherId)!;
 
-    // Check for overlaps with existing events
-    for (const existingEvent of eventsList) {
-      if (
-        isOverlapping(
-          startTime.getTime(),
-          endTime.getTime(),
-          existingEvent.startTime.getTime(),
-          existingEvent.endTime.getTime()
-        )
-      ) {
-        conflicts += 1;
-        break; // Count each conflict once
-      }
+    if (!daySchedule.has(dayOfWeek)) {
+      daySchedule.set(dayOfWeek, new Set());
     }
 
-    eventsList.push({
-      startTime: startTime,
-      endTime: endTime,
-    });
+    const timeSlots = daySchedule.get(dayOfWeek)!;
+
+    if (timeSlots.has(timeSlot)) {
+      conflicts += 1;
+    } else {
+      timeSlots.add(timeSlot);
+    }
   });
 
   return conflicts;
 }
 
-// Helper function to check time overlap
-function isOverlapping(
-  startA: number,
-  endA: number,
-  startB: number,
-  endB: number
-): boolean {
-  return startA < endB && endA > startB;
+function countClassroomConflicts(events: WeeklyEvent[]): number {
+  let conflicts = 0;
+  const classroomSchedule = new Map<
+    number,
+    Map<events_day_of_week, Set<number>>
+  >();
+
+  events.forEach((event) => {
+    const { classroomId, dayOfWeek, timeSlot } = event;
+
+    if (!classroomSchedule.has(classroomId)) {
+      classroomSchedule.set(classroomId, new Map());
+    }
+
+    const daySchedule = classroomSchedule.get(classroomId)!;
+
+    if (!daySchedule.has(dayOfWeek)) {
+      daySchedule.set(dayOfWeek, new Set());
+    }
+
+    const timeSlots = daySchedule.get(dayOfWeek)!;
+
+    if (timeSlots.has(timeSlot)) {
+      conflicts += 1;
+    } else {
+      timeSlots.add(timeSlot);
+    }
+  });
+
+  return conflicts;
 }

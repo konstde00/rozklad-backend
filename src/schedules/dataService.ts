@@ -1,3 +1,4 @@
+// dataService.ts
 
 import { PrismaClient } from '@prisma/client';
 
@@ -22,3 +23,5 @@ export async function getInitialData() {
     groupSubjects,
   };
 }
+
+export type DataService = Awaited<ReturnType<typeof getInitialData>>;
