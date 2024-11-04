@@ -1,3 +1,4 @@
+
 import { WeeklySchedule } from './types';
 import { events as PrismaEvent } from '@prisma/client';
 import { TIME_SLOTS } from '../timeSlots';
@@ -15,8 +16,6 @@ export async function expandWeeklyScheduleToSemester(
     Wednesday: 3,
     Thursday: 4,
     Friday: 5,
-    Saturday: 6,
-    Sunday: 0,
   };
 
   while (currentDate <= semesterEndDate) {
@@ -26,10 +25,9 @@ export async function expandWeeklyScheduleToSemester(
       const eventDayIndex = dayOfWeekMap[event.dayOfWeek];
 
       if (weekDay === eventDayIndex) {
-        // Find the time slot
+
         const timeSlot = TIME_SLOTS[event.timeSlot];
 
-        // Set event start and end times
         const startTime = new Date(currentDate);
         const [startHour, startMinute] = timeSlot.start.split(':').map(Number);
         startTime.setHours(startHour, startMinute, 0, 0);
@@ -39,16 +37,16 @@ export async function expandWeeklyScheduleToSemester(
         endTime.setHours(endHour, endMinute, 0, 0);
 
         const prismaEvent: PrismaEvent = {
-          id: BigInt(0), // Or generate a unique ID
+          id: BigInt(0),
           title: event.title,
           day_of_week: event.dayOfWeek,
           start_time: startTime,
           end_time: endTime,
           schedule_id: BigInt(0), // Assign the appropriate schedule ID
           group_id: event.groupId,
-          subject_id: event.subjectId,     // Include subject_id
-          teacher_id: event.teacherId,     // Include teacher_id
-          classroom_id: event.classroomId, // Include classroom_id
+          subject_id: event.subjectId,
+          teacher_id: event.teacherId,
+          classroom_id: event.classroomId,
           created_at: new Date(),
           updated_at: new Date(),
         };
@@ -57,7 +55,6 @@ export async function expandWeeklyScheduleToSemester(
       }
     });
 
-    // Move to the next day
     currentDate.setDate(currentDate.getDate() + 1);
   }
 

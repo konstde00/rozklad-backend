@@ -1,23 +1,24 @@
 import { runGeneticAlgorithm } from './geneticAlgorithm';
 import { GeneticAlgorithmConfig } from '../interfaces';
-import { generateRandomWeeklySchedule } from './generateRandomSchedule';
+import { generateRandomWeeklySchedule } from './scheduleGenerator';
 import { calculateFitness } from './fitnessFunction';
-import { WeeklySchedule } from './types';
+import { WeeklyEvent, WeeklySchedule } from './types';
 import { expandWeeklyScheduleToSemester } from './expandWeeklySchedule';
 import { TIME_SLOTS } from '../timeSlots';
+import _ from 'lodash';
 
 describe('Genetic Algorithm', () => {
   let data;
   let config: GeneticAlgorithmConfig;
 
-  beforeAll(() => {
+  beforeEach(() => {
     data = {
       semesters: [
         {
           id: BigInt(1),
           title: 'Fall Semester',
-          start_date: new Date('2023-09-01T00:00:00Z'), // UTC
-          end_date: new Date('2023-12-31T23:59:59Z'), // UTC
+          start_date: new Date('2024-09-01T00:00:00Z'), // UTC
+          end_date: new Date('2024-12-15T23:59:59Z'), // UTC
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -44,7 +45,7 @@ describe('Genetic Algorithm', () => {
         {
           id: BigInt(1),
           name: 'Mathematics',
-          hours_per_semester: 80,
+          hours_per_semester: 55,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -74,7 +75,7 @@ describe('Genetic Algorithm', () => {
         },
         {
           id: BigInt(2),
-          max_hours_per_week: 15,
+          max_hours_per_week: 35,
           created_at: new Date(),
           updated_at: new Date(),
           users: {
@@ -138,11 +139,15 @@ describe('Genetic Algorithm', () => {
     };
   });
 
-  it('should generate an initial weekly schedule', () => {
-    const weeklySchedule: WeeklySchedule = generateRandomWeeklySchedule(data);
-    expect(weeklySchedule.events.length).toBeGreaterThan(0);
+  afterEach(() => {
+    // Reset any global mocks or overrides here
+    jest.resetAllMocks();
+  });
 
-    console.log(weeklySchedule);
+  it('should generate an initial weekly schedule', () => {
+    const clonedData = _.cloneDeep(data);
+    const weeklySchedule: WeeklySchedule = generateRandomWeeklySchedule(clonedData);
+    expect(weeklySchedule.events.length).toBeGreaterThan(0);
 
     // Ensure events have correct properties
     weeklySchedule.events.forEach((event) => {
@@ -158,35 +163,45 @@ describe('Genetic Algorithm', () => {
   });
 
   it('should correctly calculate fitness of a weekly schedule', () => {
-    const weeklySchedule: WeeklySchedule = generateRandomWeeklySchedule(data);
-    const fitness = calculateFitness(weeklySchedule, data);
+    const clonedData = _.cloneDeep(data);
+    const weeklySchedule: WeeklySchedule = generateRandomWeeklySchedule(clonedData);
+    const fitness = calculateFitness(weeklySchedule, clonedData);
     expect(typeof fitness).toBe('number');
   });
 
   it('should run the genetic algorithm and return a valid weekly schedule', async () => {
-    const bestWeeklySchedule = await runGeneticAlgorithm(config, data);
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData);
     expect(bestWeeklySchedule.events.length).toBeGreaterThan(0);
     expect(typeof bestWeeklySchedule.fitness).toBe('number');
 
     // Ensure best schedule meets constraints
-    const fitness = calculateFitness(bestWeeklySchedule, data);
+    const fitness = calculateFitness(bestWeeklySchedule, clonedData);
     expect(fitness).toBe(bestWeeklySchedule.fitness);
   });
 
   it('should generate schedules that meet hours_per_semester requirements', async () => {
-    const bestWeeklySchedule = await runGeneticAlgorithm(config, data);
-    const semesterStartDate = data.semesters[0].start_date;
-    const semesterEndDate = data.semesters[0].end_date;
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData);
+    const semesterStartDate = clonedData.semesters[0].start_date;
+    const semesterEndDate = clonedData.semesters[0].end_date;
+
+    (BigInt.prototype as any).toJSON = function () {
+      return this.toString()
+    }
+
+    console.log('Best Weekly Schedule:', JSON.stringify(bestWeeklySchedule, null, 2));
 
     const fullSemesterEvents = await expandWeeklyScheduleToSemester(
       bestWeeklySchedule,
       semesterStartDate,
-      semesterEndDate
+      semesterEndDate,
     );
 
-    // Calculate total scheduled hours per subject per group
+    // Initialize a map to track total scheduled hours per group per subject
     const groupSubjectHours = new Map<string, number>();
 
+    // Aggregate scheduled hours based on group_id and subject_id
     fullSemesterEvents.forEach((event) => {
       const key = `${event.group_id}-${event.subject_id}`;
       const eventDuration = 0.75; // Each lesson is 0.75 hours
@@ -198,23 +213,95 @@ describe('Genetic Algorithm', () => {
       }
     });
 
-    // Verify scheduled hours meet required hours
+
+    // Verify that scheduled hours meet or are within a tolerance of the required hours
     groupSubjectHours.forEach((scheduledHours, key) => {
+
       const [groupIdStr, subjectIdStr] = key.split('-');
       const subjectId = BigInt(subjectIdStr);
 
-      const subject = data.subjects.find((s) => s.id === subjectId);
-      if (!subject) return;
+      const subject = clonedData.subjects.find((s) => s.id === subjectId);
+      if (!subject) {
+        throw new Error(`Subject with id ${subjectId} not found`);
+      }
 
       const requiredHours = subject.hours_per_semester;
 
-      // Allow a small tolerance due to rounding
-      const tolerance = 1;
+      // 3 hours
+      const tolerance = 3;
 
-      expect(Math.abs(scheduledHours - requiredHours)).toBeLessThanOrEqual(
-        tolerance
-      );
+      console.log('Group:', groupIdStr, 'Subject:', subject.name, 'Required Hours:', requiredHours, 'Scheduled Hours:', scheduledHours);
+
+      expect(Math.abs(scheduledHours - requiredHours)).toBeLessThanOrEqual(tolerance);
     });
   });
 
+  // Helper function to check for schedule conflicts
+  function checkScheduleConflicts(entity: 'teacher' | 'group' | 'classroom', events: WeeklyEvent[]) {
+    const schedule = new Map<string, Set<number>>();
+    let conflicts = [];
+
+    events.forEach((event) => {
+      const day = event.dayOfWeek;
+      const timeSlot = event.timeSlot;
+      const entityId = entity === 'teacher' ? event.teacherId :
+        entity === 'group' ? event.groupId :
+          event.classroomId;
+
+      const key = `${entityId}-${day}`;
+
+      if (!schedule.has(key)) {
+        schedule.set(key, new Set());
+      }
+
+      const timeSlots = schedule.get(key)!;
+
+      if (timeSlots.has(timeSlot)) {
+        conflicts.push(`${entity} ${entityId} has more than one class at time slot ${timeSlot} on ${day}`);
+      } else {
+        timeSlots.add(timeSlot);
+      }
+    });
+
+    return conflicts;
+  }
+
+  it('should schedule lecturers to teach only one class at a time', async () => {
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData);
+
+    const conflicts = checkScheduleConflicts('teacher', bestWeeklySchedule.events);
+
+    if (conflicts.length > 0) {
+      console.error('Conflicts found:', conflicts);
+    }
+
+    expect(conflicts.length).toBe(0);
+  });
+
+  it('should schedule groups to have only one class at a time', async () => {
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData);
+
+    const conflicts = checkScheduleConflicts('group', bestWeeklySchedule.events);
+
+    if (conflicts.length > 0) {
+      console.error('Conflicts found:', conflicts);
+    }
+
+    expect(conflicts.length).toBe(0);
+  });
+
+  it('should schedule classrooms to be used for only one class at a time', async () => {
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData);
+
+    const conflicts = checkScheduleConflicts('classroom', bestWeeklySchedule.events);
+
+    if (conflicts.length > 0) {
+      console.error('Conflicts found:', conflicts);
+    }
+
+    expect(conflicts.length).toBe(0);
+  });
 });

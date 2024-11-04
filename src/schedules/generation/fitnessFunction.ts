@@ -1,3 +1,4 @@
+
 import { WeeklySchedule, WeeklyEvent } from './types';
 import { events_day_of_week } from '@prisma/client';
 import { DataService } from '../interfaces';
@@ -13,10 +14,11 @@ export function calculateFitness(
   const teacherConflicts = countTeacherConflicts(schedule.events);
   const classroomConflicts = countClassroomConflicts(schedule.events);
 
-  // Penalize conflicts
-  fitness -= groupConflicts * 100;
-  fitness -= teacherConflicts * 100;
-  fitness -= classroomConflicts * 100;
+  // Penalize conflicts heavily (hard constraints)
+  const totalConflicts = groupConflicts + teacherConflicts + classroomConflicts;
+  if (totalConflicts > 0) {
+    return Number.NEGATIVE_INFINITY; // Invalid schedule
+  }
 
   // Penalty for not meeting hours_per_semester
   const hoursMismatchPenalty = calculateHoursMismatchPenalty(
@@ -25,7 +27,26 @@ export function calculateFitness(
   );
   fitness -= hoursMismatchPenalty * 50; // Adjust multiplier as needed
 
+  // Additional penalties or rewards can be added here
+
   return fitness;
+}
+
+// Modify conflict counting functions to return boolean
+function countGroupConflicts(events: WeeklyEvent[]): number {
+  let conflicts = 0;
+  const groupSchedule = new Map<string, boolean>();
+
+  events.forEach((event) => {
+    const key = `${event.groupId}-${event.dayOfWeek}-${event.timeSlot}`;
+    if (groupSchedule.has(key)) {
+      conflicts += 1;
+    } else {
+      groupSchedule.set(key, true);
+    }
+  });
+
+  return conflicts;
 }
 
 // Function to calculate penalty for not meeting hours per semester
@@ -65,45 +86,6 @@ function calculateHoursMismatchPenalty(
   });
 
   return penalty;
-}
-
-// Helper function to calculate the number of weeks in the semester
-function calculateSemesterWeeks(startDate: Date, endDate: Date): number {
-  const msInWeek = 7 * 24 * 60 * 60 * 1000;
-  const weeks = Math.ceil((endDate.getTime() - startDate.getTime()) / msInWeek);
-  return weeks;
-}
-
-function countGroupConflicts(events: WeeklyEvent[]): number {
-  let conflicts = 0;
-  const groupSchedule = new Map<
-    bigint,
-    Map<events_day_of_week, Set<number>>
-  >();
-
-  events.forEach((event) => {
-    const { groupId, dayOfWeek, timeSlot } = event;
-
-    if (!groupSchedule.has(groupId)) {
-      groupSchedule.set(groupId, new Map());
-    }
-
-    const daySchedule = groupSchedule.get(groupId)!;
-
-    if (!daySchedule.has(dayOfWeek)) {
-      daySchedule.set(dayOfWeek, new Set());
-    }
-
-    const timeSlots = daySchedule.get(dayOfWeek)!;
-
-    if (timeSlots.has(timeSlot)) {
-      conflicts += 1;
-    } else {
-      timeSlots.add(timeSlot);
-    }
-  });
-
-  return conflicts;
 }
 
 function countTeacherConflicts(events: WeeklyEvent[]): number {

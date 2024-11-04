@@ -6,7 +6,7 @@ import {
 
 import { WeeklySchedule } from './types';
 import { calculateFitness } from './fitnessFunction';
-import { generateRandomWeeklySchedule } from './generateRandomSchedule';
+import { generateRandomWeeklySchedule } from './scheduleGenerator';
 import { DataService, GeneticAlgorithmConfig } from '../interfaces';
 import { TIME_SLOTS } from '../timeSlots';
 import { WeeklyEvent } from './types';
@@ -41,7 +41,7 @@ export async function runGeneticAlgorithm(
     const bestFitness = Math.max(
       ...population.map((ind) => ind.fitness ?? Number.NEGATIVE_INFINITY)
     );
-    console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
+    // console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
   }
 
   // Return the best individual
@@ -260,12 +260,4 @@ export function checkHardConstraints(events: PrismaEvent[], data: DataService): 
   }
 
   return true; // All hard constraints satisfied
-}
-
-// Helper function to convert time string to Date object
-function timeStringToDate(timeStr: string): Date {
-  const [hoursStr, minutesStr] = timeStr.split(':');
-  const date = new Date(0); // Epoch time, Jan 1, 1970
-  date.setHours(parseInt(hoursStr, 10), parseInt(minutesStr, 10), 0, 0);
-  return date;
 }

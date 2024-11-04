@@ -1,3 +1,4 @@
+
 import { events_day_of_week } from '@prisma/client';
 
 export type WeeklySchedule = {
