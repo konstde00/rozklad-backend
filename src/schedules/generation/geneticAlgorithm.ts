@@ -1,4 +1,3 @@
-
 import {
   events_day_of_week,
   events as PrismaEvent,
@@ -16,8 +15,15 @@ export async function runGeneticAlgorithm(
   data: DataService
 ) {
   let population: WeeklySchedule[] = [];
-  for (let i = 0; i < config.populationSize; i++) {
+
+  // Generate initial population and enforce hard constraints
+  while (population.length < config.populationSize) {
     const individual = generateRandomWeeklySchedule(data);
+    // Enforce hard constraints
+    if (!checkHardConstraints(individual.events, data)) {
+      // Repair the schedule
+      individual.events = repairSchedule(individual.events, data);
+    }
     individual.fitness = calculateFitness(individual, data);
     population.push(individual);
   }
@@ -27,10 +33,19 @@ export async function runGeneticAlgorithm(
     population = selection(population);
 
     // Crossover
-    population = crossover(population, config.crossoverRate);
+    population = crossover(population, config.crossoverRate, data);
 
     // Mutation
-    population = mutation(population, config.mutationRate);
+    population = mutation(population, config.mutationRate, data);
+
+    // Enforce hard constraints after crossover and mutation
+    population = population.map((individual) => {
+      if (!checkHardConstraints(individual.events, data)) {
+        // Repair the schedule
+        individual.events = repairSchedule(individual.events, data);
+      }
+      return individual;
+    });
 
     // Recalculate fitness
     population.forEach((individual) => {
@@ -70,7 +85,8 @@ function selection(population: WeeklySchedule[]): WeeklySchedule[] {
 
 function crossover(
   population: WeeklySchedule[],
-  crossoverRate: number
+  crossoverRate: number,
+  data: DataService
 ): WeeklySchedule[] {
   const newPopulation: WeeklySchedule[] = [];
   for (let i = 0; i < population.length; i += 2) {
@@ -78,18 +94,12 @@ function crossover(
     const parent2 = population[i + 1];
 
     if (parent2 && Math.random() < crossoverRate) {
-      const child1Events: WeeklyEvent[] = [];
-      const child2Events: WeeklyEvent[] = [];
-
-      for (let j = 0; j < parent1.events.length; j++) {
-        if (Math.random() < 0.5) {
-          child1Events.push(parent1.events[j]);
-          child2Events.push(parent2.events[j]);
-        } else {
-          child1Events.push(parent2.events[j]);
-          child2Events.push(parent1.events[j]);
-        }
-      }
+      // Perform constraint-preserving crossover
+      const [child1Events, child2Events] = performConstraintPreservingCrossover(
+        parent1.events,
+        parent2.events,
+        data
+      );
 
       newPopulation.push({ events: child1Events });
       newPopulation.push({ events: child2Events });
@@ -105,8 +115,11 @@ function crossover(
 
 function mutation(
   population: WeeklySchedule[],
-  mutationRate: number
+  mutationRate: number,
+  data: DataService
 ): WeeklySchedule[] {
+  const weekdays: events_day_of_week[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
   return population.map((individual) => {
     if (Math.random() < mutationRate) {
       if (!individual.events || individual.events.length === 0) {
@@ -119,12 +132,8 @@ function mutation(
       const mutationChoice = Math.floor(Math.random() * 3);
       switch (mutationChoice) {
         case 0:
-          // Change day_of_week
-          const daysOfWeek = Object.values(events_day_of_week).filter(
-            (value) => typeof value === 'string'
-          ) as events_day_of_week[];
-          event.dayOfWeek =
-            daysOfWeek[Math.floor(Math.random() * daysOfWeek.length)];
+          // Change day_of_week to a weekday
+          event.dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
           break;
         case 1:
           // Change time slot
@@ -149,17 +158,23 @@ function mutation(
           }
           break;
       }
+
+      // After mutation, enforce hard constraints
+      if (!checkHardConstraints(individual.events, data)) {
+        // Repair the schedule
+        individual.events = repairSchedule(individual.events, data);
+      }
     }
     return individual;
   });
 }
 
 // Constraint-preserving crossover function
-export function performConstraintPreservingCrossover(
-  events1: PrismaEvent[],
-  events2: PrismaEvent[],
+function performConstraintPreservingCrossover(
+  events1: WeeklyEvent[],
+  events2: WeeklyEvent[],
   data: DataService
-): [PrismaEvent[], PrismaEvent[]] {
+): [WeeklyEvent[], WeeklyEvent[]] {
   // Swap random portions of the schedules while ensuring hard constraints are maintained
   const crossoverPoint = Math.floor(Math.random() * events1.length);
 
@@ -174,33 +189,39 @@ export function performConstraintPreservingCrossover(
 }
 
 // Repair function to fix schedule conflicts
-function repairSchedule(events: PrismaEvent[], data: DataService): PrismaEvent[] {
+function repairSchedule(events: WeeklyEvent[], data: DataService): WeeklyEvent[] {
   // Implement a repair mechanism to resolve conflicts in the schedule
   // For simplicity, we'll remove conflicting events
   // A more sophisticated approach can reschedule conflicting events
 
-  const repairedEvents: PrismaEvent[] = [];
-  const eventMap = new Map<string, PrismaEvent>();
+  const repairedEvents: WeeklyEvent[] = [];
+  const eventMap = new Map<string, WeeklyEvent>();
 
   for (const event of events) {
-    const key = `${event.day_of_week}-${event.start_time.getTime()}`;
+
+    const key = `${event.dayOfWeek}-${event.timeSlot}`;
 
     // Check for teacher, group, and classroom availability
-    const isTeacherAvailable = !eventMap.has(`teacher-${event.teacher_id}-${key}`);
-    const isGroupAvailable = !eventMap.has(`group-${event.group_id}-${key}`);
-    const isClassroomAvailable = !eventMap.has(`classroom-${event.classroom_id}-${key}`);
+    const isTeacherAvailable = !eventMap.has(`teacher-${event.teacherId}-${key}`);
+    const isGroupAvailable = !eventMap.has(`group-${event.groupId}-${key}`);
+    const isClassroomAvailable = !eventMap.has(`classroom-${event.classroomId}-${key}`);
 
     // Check classroom capacity
-    const group = data.studentGroups.find((g) => g.id === event.group_id);
-    const classroom = data.classrooms.find((c) => c.id === event.classroom_id);
+    const group = data.studentGroups.find((g) => g.id === event.groupId);
+    const classroom = data.classrooms.find((c) => c.id === event.classroomId);
 
     const doesClassroomFitGroup = classroom && group && classroom.capacity >= group.students_count;
 
-    if (isTeacherAvailable && isGroupAvailable && isClassroomAvailable && doesClassroomFitGroup) {
+    // Check teacher qualification
+    const isQualified = data.teacherSubjects.some(
+      (ts) => ts.teacher_id === event.teacherId && ts.subject_id === event.subjectId
+    );
+
+    if (isTeacherAvailable && isGroupAvailable && isClassroomAvailable && doesClassroomFitGroup && isQualified) {
       repairedEvents.push(event);
-      eventMap.set(`teacher-${event.teacher_id}-${key}`, event);
-      eventMap.set(`group-${event.group_id}-${key}`, event);
-      eventMap.set(`classroom-${event.classroom_id}-${key}`, event);
+      eventMap.set(`teacher-${event.teacherId}-${key}`, event);
+      eventMap.set(`group-${event.groupId}-${key}`, event);
+      eventMap.set(`classroom-${event.classroomId}-${key}`, event);
     }
     // Else, conflict detected; event is dropped
   }
@@ -208,46 +229,45 @@ function repairSchedule(events: PrismaEvent[], data: DataService): PrismaEvent[]
   return repairedEvents;
 }
 
-// Helper function to check hard constraints
-export function checkHardConstraints(events: PrismaEvent[], data: DataService): boolean {
-  // Implement checks for hard constraints
-  // Ensure no teacher, group, or classroom is double-booked
-  // Ensure classroom capacity is sufficient
-  // Ensure teacher qualifications
+// Ensure no teacher, group, or classroom is double-booked
+// Ensure classroom capacity is sufficient
+// Ensure teacher qualifications
+function checkHardConstraints(events: WeeklyEvent[], data: DataService): boolean {
 
-  const eventMap = new Map<string, PrismaEvent>();
+  const eventMap = new Map<string, WeeklyEvent>();
 
   for (const event of events) {
-    const key = `${event.day_of_week}-${event.start_time.getTime()}`;
+
+    const key = `${event.dayOfWeek}-${event.timeSlot}`;
 
     // Check for teacher availability
-    const teacherKey = `teacher-${event.teacher_id}-${key}`;
+    const teacherKey = `teacher-${event.teacherId}-${key}`;
     if (eventMap.has(teacherKey)) {
       return false; // Teacher double-booked
     }
 
     // Check for group availability
-    const groupKey = `group-${event.group_id}-${key}`;
+    const groupKey = `group-${event.groupId}-${key}`;
     if (eventMap.has(groupKey)) {
       return false; // Group double-booked
     }
 
     // Check for classroom availability
-    const classroomKey = `classroom-${event.classroom_id}-${key}`;
+    const classroomKey = `classroom-${event.classroomId}-${key}`;
     if (eventMap.has(classroomKey)) {
       return false; // Classroom double-booked
     }
 
     // Check classroom capacity
-    const group = data.studentGroups.find((g) => g.id === event.group_id);
-    const classroom = data.classrooms.find((c) => c.id === event.classroom_id);
+    const group = data.studentGroups.find((g) => g.id === event.groupId);
+    const classroom = data.classrooms.find((c) => c.id === event.classroomId);
     if (classroom && group && classroom.capacity < group.students_count) {
       return false; // Classroom too small
     }
 
     // Check teacher qualification
     const isQualified = data.teacherSubjects.some(
-      (ts) => ts.teacher_id === event.teacher_id && ts.subject_id === event.subject_id
+      (ts) => ts.teacher_id === event.teacherId && ts.subject_id === event.subjectId
     );
     if (!isQualified) {
       return false; // Teacher not qualified
