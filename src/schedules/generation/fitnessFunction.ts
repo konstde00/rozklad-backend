@@ -1,11 +1,12 @@
 
 import { WeeklySchedule, WeeklyEvent } from './types';
-import { events_day_of_week } from '@prisma/client';
+import { events_day_of_week, lesson_type } from '@prisma/client';
 import { DataService } from '../interfaces';
 
 export function calculateFitness(
   schedule: WeeklySchedule,
-  data: DataService
+  data: DataService,
+  semesterWeeks: number
 ): number {
   let fitness = 0;
 
@@ -23,16 +24,62 @@ export function calculateFitness(
   // Penalty for not meeting hours_per_semester
   const hoursMismatchPenalty = calculateHoursMismatchPenalty(
     schedule.events,
-    data
+    data,
+    semesterWeeks
   );
-  fitness -= hoursMismatchPenalty * 50; // Adjust multiplier as needed
+  fitness -= hoursMismatchPenalty * 100; // Increased multiplier for stronger penalty
 
   // Additional penalties or rewards can be added here
 
   return fitness;
 }
 
-// Modify conflict counting functions to return boolean
+// Function to calculate penalty for not meeting hours per semester
+function calculateHoursMismatchPenalty(
+  events: WeeklyEvent[],
+  data: DataService,
+  semesterWeeks: number
+): number {
+  let penalty = 0;
+  const groupSubjectLessonTypeHours = new Map<string, number>();
+
+  events.forEach((event) => {
+    const key = `${event.groupId}-${event.subjectId}-${event.lessonType}`;
+    const hours = 1; // Each event is 1 hour
+
+    if (groupSubjectLessonTypeHours.has(key)) {
+      groupSubjectLessonTypeHours.set(
+        key,
+        groupSubjectLessonTypeHours.get(key)! + hours
+      );
+    } else {
+      groupSubjectLessonTypeHours.set(key, hours);
+    }
+  });
+
+  // Multiply weekly hours by the number of weeks to get total scheduled hours
+  groupSubjectLessonTypeHours.forEach((weeklyHours, key) => {
+    const totalScheduledHours = weeklyHours * semesterWeeks
+    const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
+    const subjectId = BigInt(subjectIdStr);
+    const lessonType = lessonTypeStr as lesson_type;
+
+    const subject = data.subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+
+    let requiredHours = 0;
+    if (lessonType === 'lecture') {
+      requiredHours = subject.lecture_hours_per_semester;
+    } else if (lessonType === 'practice') {
+      requiredHours = subject.practice_hours_per_semester;
+    }
+
+    penalty += Math.abs(totalScheduledHours - requiredHours);
+  });
+
+  return penalty;
+}
+
 function countGroupConflicts(events: WeeklyEvent[]): number {
   let conflicts = 0;
   const groupSchedule = new Map<string, boolean>();
@@ -47,45 +94,6 @@ function countGroupConflicts(events: WeeklyEvent[]): number {
   });
 
   return conflicts;
-}
-
-// Function to calculate penalty for not meeting hours per semester
-function calculateHoursMismatchPenalty(
-  events: WeeklyEvent[],
-  data: DataService
-): number {
-  let penalty = 0;
-  const groupSubjectHours = new Map<string, number>();
-
-  events.forEach((event) => {
-    const key = `${event.groupId}-${event.subjectId}`;
-    const hours = 0.75; // Each lesson is 0.75 hours
-
-    if (groupSubjectHours.has(key)) {
-      groupSubjectHours.set(key, groupSubjectHours.get(key)! + hours);
-    } else {
-      groupSubjectHours.set(key, hours);
-    }
-  });
-
-  // Calculate expected total hours
-  groupSubjectHours.forEach((scheduledHours, key) => {
-    const [groupIdStr, subjectIdStr] = key.split('-');
-    const subjectId = BigInt(subjectIdStr);
-
-    const subject = data.subjects.find((s) => s.id === subjectId);
-    if (!subject) return;
-
-    const requiredHours = subject.hours_per_semester;
-
-    if (scheduledHours < requiredHours) {
-      penalty += requiredHours - scheduledHours;
-    } else if (scheduledHours > requiredHours) {
-      penalty += scheduledHours - requiredHours;
-    }
-  });
-
-  return penalty;
 }
 
 function countTeacherConflicts(events: WeeklyEvent[]): number {

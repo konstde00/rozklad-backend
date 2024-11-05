@@ -30,6 +30,7 @@ model events {
   teacher_id     BigInt
   classroom_id   Int
   subject_id     BigInt
+  lesson_type    lesson_type
   created_at     DateTime?          @default(now()) @db.Timestamp(0)
   updated_at     DateTime?          @default(now()) @db.Timestamp(0)
 
@@ -94,25 +95,27 @@ model student_groups {
 }
 
 model subjects {
-  id                 BigInt             @id @default(autoincrement())
-  name               String             @db.VarChar(100)
-  hours_per_semester Int
-  created_at         DateTime?          @default(now()) @db.Timestamp(0)
-  updated_at         DateTime?          @default(now()) @db.Timestamp(0)
+  id                        BigInt             @id @default(autoincrement())
+  name                      String             @db.VarChar(100)
+  lecture_hours_per_semester  Int              // Updated field
+  practice_hours_per_semester Int              // Updated field
+  created_at                DateTime?          @default(now()) @db.Timestamp(0)
+  updated_at                DateTime?          @default(now()) @db.Timestamp(0)
 
-  group_subjects     group_subjects[]
-  teacher_subjects   teacher_subjects[]
-  events             events[]
+  group_subjects            group_subjects[]
+  teacher_subjects          teacher_subjects[]
+  events                    events[]
 }
 
 model teacher_subjects {
-  teacher_id BigInt
-  subject_id BigInt
+  teacher_id  BigInt
+  subject_id  BigInt
+  lesson_type lesson_type
 
   teachers   teachers @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_subjects_ibfk_1")
   subjects   subjects @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_subjects_ibfk_2")
 
-  @@id([teacher_id, subject_id])
+  @@id([teacher_id, subject_id, lesson_type])   // Updated composite key
   @@index([subject_id], map: "subject_id")
 }
 
@@ -154,4 +157,9 @@ enum users_role {
   teacher
   faculty_admin
   system_admin
+}
+
+enum lesson_type {
+  lecture
+  practice
 }

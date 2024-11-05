@@ -19,7 +19,7 @@ export async function expandWeeklyScheduleToSemester(
   };
 
   while (currentDate <= semesterEndDate) {
-    const weekDay = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
+    const weekDay = currentDate.getDay(); // 1 (Monday) to 5 (Friday)
 
     weeklySchedule.events.forEach((event) => {
       const eventDayIndex = dayOfWeekMap[event.dayOfWeek];
@@ -47,6 +47,7 @@ export async function expandWeeklyScheduleToSemester(
           subject_id: event.subjectId,
           teacher_id: event.teacherId,
           classroom_id: event.classroomId,
+          lesson_type: event.lessonType,
           created_at: new Date(),
           updated_at: new Date(),
         };

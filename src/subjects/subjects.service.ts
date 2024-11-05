@@ -28,7 +28,8 @@ export class SubjectsService {
   async create(createSubjectDto: CreateSubjectDto): Promise<SubjectDto> {
     const data: Prisma.subjectsCreateInput = {
       name: createSubjectDto.name,
-      hours_per_semester: createSubjectDto.hoursPerWeek,
+      lecture_hours_per_semester: createSubjectDto.lectureHoursPerSemester,
+      practice_hours_per_semester: createSubjectDto.practiceHoursPerSemester,
     };
 
     const subject = await this.prisma.subjects.create({ data });
@@ -45,7 +46,8 @@ export class SubjectsService {
 
     const data: Prisma.subjectsUpdateInput = {
       name: updateSubjectDto.name,
-      hours_per_semester: updateSubjectDto.hoursPerWeek,
+      lecture_hours_per_semester: updateSubjectDto.lectureHoursPerSemester,
+      practice_hours_per_semester: updateSubjectDto.practiceHoursPerSemester
     };
 
     const subject = await this.prisma.subjects.update({

@@ -1,5 +1,4 @@
-
-import { events_day_of_week } from '@prisma/client';
+import { events_day_of_week, lesson_type } from '@prisma/client';
 
 export type WeeklySchedule = {
   events: WeeklyEvent[];
@@ -14,4 +13,5 @@ export type WeeklyEvent = {
   teacherId: bigint;
   subjectId: bigint;
   classroomId: number;
+  lessonType: lesson_type;
 };
