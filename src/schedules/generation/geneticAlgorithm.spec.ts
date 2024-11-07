@@ -50,7 +50,7 @@ describe('Genetic Algorithm', () => {
       subjects: [
         {
           id: BigInt(1),
-          name: 'Mathematics',
+          name: 'Statistic modelling',
           lecture_hours_per_semester: 28,
           practice_hours_per_semester: 42,
           created_at: new Date(),
@@ -58,7 +58,7 @@ describe('Genetic Algorithm', () => {
         },
         {
           id: BigInt(2),
-          name: 'Physics',
+          name: 'Web Technologies',
           lecture_hours_per_semester: 30,
           practice_hours_per_semester: 40,
           created_at: new Date(),
@@ -120,37 +120,37 @@ describe('Genetic Algorithm', () => {
       teacherSubjects: [
         {
           teacher_id: BigInt(1),
-          subject_id: BigInt(1), // Alice can teach Mathematics
+          subject_id: BigInt(1), // Alice can teach Statistic modelling
           lesson_type: 'lecture' as lesson_type,
         },
         {
           teacher_id: BigInt(1),
-          subject_id: BigInt(1), // Alice can also lead practice sessions for Mathematics
+          subject_id: BigInt(1), // Alice can also lead practice sessions for Statistic modelling
           lesson_type: 'practice' as lesson_type,
         },
         {
           teacher_id: BigInt(2),
-          subject_id: BigInt(2), // Bob can teach Physics lectures
+          subject_id: BigInt(2), // Bob can teach Web Technologies lectures
           lesson_type: 'lecture' as lesson_type,
         },
         {
           teacher_id: BigInt(2),
-          subject_id: BigInt(2), // Bob can lead practice sessions for Physics
+          subject_id: BigInt(2), // Bob can lead practice sessions for Web Technologies
           lesson_type: 'practice' as lesson_type,
         },
       ],
       groupSubjects: [
         {
           group_id: BigInt(1),
-          subject_id: BigInt(1), // Group A studies Mathematics
+          subject_id: BigInt(1), // Group A studies Statistic modelling
         },
         {
           group_id: BigInt(1),
-          subject_id: BigInt(2), // Group A studies Physics
+          subject_id: BigInt(2), // Group A studies Web Technologies
         },
         {
           group_id: BigInt(2),
-          subject_id: BigInt(1), // Group B studies Mathematics
+          subject_id: BigInt(1), // Group B studies Statistic modelling
         },
       ],
     };
