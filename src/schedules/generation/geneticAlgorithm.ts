@@ -23,18 +23,14 @@ export async function runGeneticAlgorithm(
     throw new Error('Semester not found');
   }
 
-  // Calculate the number of weeks in the semester
   const semesterWeeks = calculateSemesterWeeks(
     semester.start_date,
     semester.end_date,
   );
 
-  // Generate initial population and enforce hard constraints
   while (population.length < config.populationSize) {
     const individual = generateRandomWeeklySchedule(data);
-    // Enforce hard constraints
     if (!checkHardConstraints(individual.events, data)) {
-      // Repair the schedule
       individual.events = repairSchedule(individual.events, data);
     }
     individual.fitness = calculateFitness(individual, data, semesterWeeks);
@@ -49,16 +45,13 @@ export async function runGeneticAlgorithm(
 
     population = mutation(population, config.mutationRate, data);
 
-    // Enforce hard constraints after crossover and mutation
     population = population.map((individual) => {
       if (!checkHardConstraints(individual.events, data)) {
-        // Repair the schedule
         individual.events = repairSchedule(individual.events, data);
       }
       return individual;
     });
 
-    // Recalculate fitness
     population.forEach((individual) => {
       individual.fitness = calculateFitness(individual, data, semesterWeeks);
     });
@@ -69,7 +62,6 @@ export async function runGeneticAlgorithm(
     console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
   }
 
-  // Return the best individual
   return population.reduce((prev, current) =>
     (prev.fitness ?? Number.NEGATIVE_INFINITY) >
     (current.fitness ?? Number.NEGATIVE_INFINITY)
@@ -106,7 +98,6 @@ function crossover(
     const parent2 = population[i + 1];
 
     if (parent2 && Math.random() < crossoverRate) {
-      // Perform constraint-preserving crossover
       const [child1Events, child2Events] = performConstraintPreservingCrossover(
         parent1.events,
         parent2.events,
@@ -194,13 +185,11 @@ function mutation(
   });
 }
 
-// Constraint-preserving crossover function
 function performConstraintPreservingCrossover(
   events1: WeeklyEvent[],
   events2: WeeklyEvent[],
   data: DataService,
 ): [WeeklyEvent[], WeeklyEvent[]] {
-  // Swap random portions of the schedules while ensuring hard constraints are maintained
   const crossoverPoint = Math.floor(Math.random() * events1.length);
 
   const child1Events = [
@@ -212,14 +201,12 @@ function performConstraintPreservingCrossover(
     ...events1.slice(crossoverPoint),
   ];
 
-  // Repair any conflicts in the children schedules
   const repairedChild1Events = repairSchedule(child1Events, data);
   const repairedChild2Events = repairSchedule(child2Events, data);
 
   return [repairedChild1Events, repairedChild2Events];
 }
 
-// Repair function to fix schedule conflicts
 function repairSchedule(
   events: WeeklyEvent[],
   data: DataService,
@@ -228,7 +215,6 @@ function repairSchedule(
   const eventMap = new Map<string, WeeklyEvent>();
   const conflicts = checkHardConstraints(events, data);
 
-  // First, add all non-conflicting events to the repairedEvents list
   for (const event of events) {
     if (!conflicts.includes(event)) {
       const key = `${event.dayOfWeek}-${event.timeSlot}`;
@@ -244,7 +230,6 @@ function repairSchedule(
     }
   }
 
-  // Attempt to reschedule conflicting events
   for (const conflictEvent of conflicts) {
     const rescheduledEvent = findAlternativeEventForRepair(
       conflictEvent,
@@ -252,7 +237,6 @@ function repairSchedule(
       data,
     );
     if (rescheduledEvent) {
-      // Update event map with the rescheduled event
       const key = `${rescheduledEvent.dayOfWeek}-${rescheduledEvent.timeSlot}`;
       const teacherKey = `teacher-${rescheduledEvent.teacherId}-${key}`;
       const groupKey = `group-${rescheduledEvent.groupId}-${key}`;
@@ -264,7 +248,6 @@ function repairSchedule(
 
       repairedEvents.push(rescheduledEvent);
     } else {
-      // If unable to reschedule, keep the event in its original state (could also log or handle differently)
       console.log(
         `Unable to reschedule event: ${JSON.stringify(conflictEvent)}`,
       );
@@ -417,5 +400,5 @@ function checkHardConstraints(
     eventMap.set(classroomKey, event);
   }
 
-  return conflicts; // Return the list of conflicting events
+  return conflicts;
 }
