@@ -130,48 +130,58 @@ function mutation(
 
   return population.map((individual) => {
     if (Math.random() < mutationRate) {
-      if (!individual.events || individual.events.length === 0) {
-        return individual;
-      }
 
-      const eventIndex = Math.floor(Math.random() * individual.events.length);
-      const event = { ...individual.events[eventIndex] }; // Clone event to avoid mutating others
+      let events = [...individual.events];
 
-      const mutationChoice = Math.floor(Math.random() * 3);
+      const mutationChoice = Math.floor(Math.random() * 5);
+
       switch (mutationChoice) {
         case 0:
-          // Change day_of_week to a weekday
-          event.dayOfWeek =
-            weekdays[Math.floor(Math.random() * weekdays.length)];
+          // Change day_of_week of a random event to a random weekday
+          if (events.length === 0) break;
+          const eventIndex = Math.floor(Math.random() * events.length);
+          const event = { ...events[eventIndex] }; // Clone event
+          event.dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
+          events[eventIndex] = event;
           break;
+
         case 1:
-          // Change time slot
-          event.timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
+          // Change time slot of a random event
+          if (events.length === 0) break;
+          const eventIndex1 = Math.floor(Math.random() * events.length);
+          const event1 = { ...events[eventIndex1] }; // Clone event
+          event1.timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
+          events[eventIndex1] = event1;
           break;
+
         case 2:
           // Swap events between two subjects within the same group
-          const swapEventIndex = Math.floor(
-            Math.random() * individual.events.length,
-          );
-          const swapEvent = { ...individual.events[swapEventIndex] };
-          if (event.groupId === swapEvent.groupId) {
+          if (events.length < 2) break;
+          const eventIndex2 = Math.floor(Math.random() * events.length);
+          const event2 = { ...events[eventIndex2] };
+          const swapEventIndex = Math.floor(Math.random() * events.length);
+          const swapEvent = { ...events[swapEventIndex] };
+          if (event2.groupId === swapEvent.groupId && eventIndex2 !== swapEventIndex) {
             // Swap timeSlot and dayOfWeek
-            [event.timeSlot, swapEvent.timeSlot] = [
-              swapEvent.timeSlot,
-              event.timeSlot,
-            ];
-            [event.dayOfWeek, swapEvent.dayOfWeek] = [
-              swapEvent.dayOfWeek,
-              event.dayOfWeek,
-            ];
-            // Update the swapped events in the individual's event list
-            individual.events[swapEventIndex] = swapEvent;
+            [event2.timeSlot, swapEvent.timeSlot] = [swapEvent.timeSlot, event2.timeSlot];
+            [event2.dayOfWeek, swapEvent.dayOfWeek] = [swapEvent.dayOfWeek, event2.dayOfWeek];
+            events[eventIndex2] = event2;
+            events[swapEventIndex] = swapEvent;
           }
+          break;
+
+        case 3:
+          addLesson(events, data, weekdays);
+          break;
+
+        case 4:
+          if (events.length === 0) break;
+          const eventIndexToDelete = Math.floor(Math.random() * events.length);
+          events.splice(eventIndexToDelete, 1);
           break;
       }
 
-      // Replace the mutated event in the individual's event list
-      individual.events[eventIndex] = event;
+      individual.events = events;
 
       // After mutation, enforce hard constraints
       const conflicts = checkHardConstraints(individual.events, data);
@@ -179,10 +189,87 @@ function mutation(
         // Repair the schedule
         individual.events = repairSchedule(individual.events, data);
       }
+
+      return individual;
+    } else {
+      return individual;
     }
-    return individual;
   });
 }
+
+function addLesson(
+  events: WeeklyEvent[],
+  data: DataService,
+  weekdays: events_day_of_week[],
+): void {
+
+  const groups = data.studentGroups;
+  if (groups.length === 0) return;
+  const randomGroup = groups[Math.floor(Math.random() * groups.length)];
+
+  // Get subjects for the group
+  const groupSubjects = data.groupSubjects.filter(gs => gs.group_id === randomGroup.id);
+  if (groupSubjects.length === 0) return;
+  const randomGroupSubject = groupSubjects[Math.floor(Math.random() * groupSubjects.length)];
+
+  // Get the subject
+  const subject = data.subjects.find(s => s.id === randomGroupSubject.subject_id);
+  if (!subject) return;
+
+  // Get eligible teachers for the subject and lesson type
+  const eligibleTeachers = data.teacherSubjects.filter(
+    ts => ts.subject_id === subject.id
+  );
+  if (eligibleTeachers.length === 0) return;
+  const randomTeacherSubject = eligibleTeachers[Math.floor(Math.random() * eligibleTeachers.length)];
+  const teacher = data.teachers.find(t => t.id === randomTeacherSubject.teacher_id);
+  if (!teacher) return;
+
+  // Get suitable classrooms
+  const suitableClassrooms = data.classrooms.filter(
+    c => c.capacity >= randomGroup.students_count
+  );
+  if (suitableClassrooms.length === 0) return;
+  const classroom = suitableClassrooms[Math.floor(Math.random() * suitableClassrooms.length)];
+
+  // Find a random day and time slot
+  const dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
+  const timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
+
+  // Check for conflicts
+  const key = `${dayOfWeek}-${timeSlot}`;
+  const teacherKey = `teacher-${teacher.id}-${key}`;
+  const groupKey = `group-${randomGroup.id}-${key}`;
+  const classroomKey = `classroom-${classroom.id}-${key}`;
+
+  const eventMap = new Map<string, WeeklyEvent>();
+  events.forEach(e => {
+    const k = `${e.dayOfWeek}-${e.timeSlot}`;
+    eventMap.set(`teacher-${e.teacherId}-${k}`, e);
+    eventMap.set(`group-${e.groupId}-${k}`, e);
+    eventMap.set(`classroom-${e.classroomId}-${k}`, e);
+  });
+
+  if (
+    !eventMap.has(teacherKey) &&
+    !eventMap.has(groupKey) &&
+    !eventMap.has(classroomKey)
+  ) {
+    // Add a new event
+    const newEvent: WeeklyEvent = {
+      title: subject.name,
+      dayOfWeek: dayOfWeek,
+      timeSlot: timeSlot,
+      groupId: randomGroup.id,
+      teacherId: teacher.id,
+      subjectId: subject.id,
+      classroomId: classroom.id,
+      lessonType: randomTeacherSubject.lesson_type,
+    };
+    events.push(newEvent);
+  }
+}
+
 
 function performConstraintPreservingCrossover(
   events1: WeeklyEvent[],
