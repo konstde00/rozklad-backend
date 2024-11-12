@@ -57,14 +57,13 @@ export async function runGeneticAlgorithm(
     });
 
     const bestFitness = Math.max(
-      ...population.map((ind) => ind.fitness ?? Number.NEGATIVE_INFINITY),
+      ...population.map((ind) => ind.fitness),
     );
     console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
   }
 
   return population.reduce((prev, current) =>
-    (prev.fitness ?? Number.NEGATIVE_INFINITY) >
-    (current.fitness ?? Number.NEGATIVE_INFINITY)
+    (prev.fitness) > (current.fitness)
       ? prev
       : current,
   );

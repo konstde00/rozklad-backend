@@ -9,14 +9,6 @@ export function calculateFitness(
 ): number {
   let fitness = 0;
 
-  const groupConflicts = countGroupConflicts(schedule.events);
-  const teacherConflicts = countTeacherConflicts(schedule.events);
-
-  const totalConflicts = groupConflicts + teacherConflicts;
-  if (totalConflicts > 0) {
-    return Number.NEGATIVE_INFINITY;
-  }
-
   const hoursMismatchPenalty = calculateHoursMismatchPenalty(
     schedule.events,
     data,
@@ -29,7 +21,46 @@ export function calculateFitness(
   const gapPenaltyWeight = 10;
   fitness -= (teacherGaps + groupGaps) * gapPenaltyWeight;
 
+  const teacherHoursPenalty = calculateTeacherHoursPenalty(schedule.events, data);
+  fitness -= teacherHoursPenalty * 20;
+
   return fitness;
+}
+
+function calculateTeacherHoursPenalty(
+  events: WeeklyEvent[],
+  data: DataService
+): number {
+  let penalty = 0;
+  const teacherWeeklyHours = new Map<bigint, number>();
+
+  events.forEach((event) => {
+    const teacherId = event.teacherId;
+    const hours = 1;
+
+    if (teacherWeeklyHours.has(teacherId)) {
+      teacherWeeklyHours.set(
+        teacherId,
+        teacherWeeklyHours.get(teacherId)! + hours
+      );
+    } else {
+      teacherWeeklyHours.set(teacherId, hours);
+    }
+  });
+
+  teacherWeeklyHours.forEach((scheduledHours, teacherId) => {
+    const teacher = data.teachers.find((t) => t.id === teacherId);
+    if (!teacher) return;
+
+    const maxHoursPerWeek = teacher.max_hours_per_week;
+
+    if (scheduledHours > maxHoursPerWeek) {
+      // Penalty for exceeding max hours
+      penalty += (scheduledHours - maxHoursPerWeek);
+    }
+  });
+
+  return penalty;
 }
 
 function calculateHoursMismatchPenalty(
@@ -75,54 +106,6 @@ function calculateHoursMismatchPenalty(
   });
 
   return penalty;
-}
-
-function countGroupConflicts(events: WeeklyEvent[]): number {
-  let conflicts = 0;
-  const groupSchedule = new Map<string, boolean>();
-
-  events.forEach((event) => {
-    const key = `${event.groupId}-${event.dayOfWeek}-${event.timeSlot}`;
-    if (groupSchedule.has(key)) {
-      conflicts += 1;
-    } else {
-      groupSchedule.set(key, true);
-    }
-  });
-
-  return conflicts;
-}
-
-function countTeacherConflicts(events: WeeklyEvent[]): number {
-  let conflicts = 0;
-  const teacherSchedule = new Map<
-    bigint,
-    Map<events_day_of_week, Set<number>>
-  >();
-
-  events.forEach((event) => {
-    const { teacherId, dayOfWeek, timeSlot } = event;
-
-    if (!teacherSchedule.has(teacherId)) {
-      teacherSchedule.set(teacherId, new Map());
-    }
-
-    const daySchedule = teacherSchedule.get(teacherId)!;
-
-    if (!daySchedule.has(dayOfWeek)) {
-      daySchedule.set(dayOfWeek, new Set());
-    }
-
-    const timeSlots = daySchedule.get(dayOfWeek)!;
-
-    if (timeSlots.has(timeSlot)) {
-      conflicts += 1;
-    } else {
-      timeSlots.add(timeSlot);
-    }
-  });
-
-  return conflicts;
 }
 
 function countTeacherGaps(events: WeeklyEvent[]): number {
