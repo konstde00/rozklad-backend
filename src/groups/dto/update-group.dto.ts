@@ -1,3 +1,4 @@
+
 import {
   IsOptional,
   IsString,
@@ -6,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubjectDto } from './subject.dto';
+import { TeachingAssignmentDto } from './teaching-assignment.dto';
 
 export class UpdateGroupDto {
   @IsOptional()
@@ -15,11 +16,19 @@ export class UpdateGroupDto {
 
   @IsOptional()
   @IsInt()
+  study_year?: number;
+
+  @IsOptional()
+  @IsInt()
+  course_number?: number;
+
+  @IsOptional()
+  @IsInt()
   students_count?: number;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SubjectDto)
-  subjects?: SubjectDto[];
+  @Type(() => TeachingAssignmentDto)
+  teachingAssignments?: TeachingAssignmentDto[];
 }
