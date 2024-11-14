@@ -21,7 +21,7 @@ export class AuthService {
       .digest('hex');
 
     try {
-      const user = await this.prisma.users.create({
+      const user = await this.prisma.user.create({
         data: {
           ...rest,
           password_hash,
@@ -47,7 +47,7 @@ export class AuthService {
       .update(password)
       .digest('hex');
 
-    const user = await this.prisma.users.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email },
     });
 

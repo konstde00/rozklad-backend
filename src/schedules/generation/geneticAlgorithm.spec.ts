@@ -115,7 +115,7 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
       ],
-      // Updated to include lab and seminar hours, and qualifications
+
       teachingAssignments: [
         {
           id: BigInt(1),

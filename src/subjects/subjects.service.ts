@@ -10,13 +10,23 @@ import { Prisma } from '@prisma/client';
 export class SubjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Retrieves all subjects from the database.
+   * @returns An array of SubjectDto.
+   */
   async findAll(): Promise<SubjectDto[]> {
-    const subjects = await this.prisma.subjects.findMany();
+    const subjects = await this.prisma.subject.findMany();
     return subjects.map((subject) => this.toSubjectDto(subject));
   }
 
+  /**
+   * Retrieves a single subject by its ID.
+   * @param id - The ID of the subject.
+   * @returns A SubjectDto object.
+   * @throws NotFoundException if the subject does not exist.
+   */
   async findOne(id: string): Promise<SubjectDto> {
-    const subject = await this.prisma.subjects.findUnique({
+    const subject = await this.prisma.subject.findUnique({
       where: { id: BigInt(id) },
     });
     if (!subject) {
@@ -25,55 +35,73 @@ export class SubjectsService {
     return this.toSubjectDto(subject);
   }
 
+  /**
+   * Creates a new subject.
+   * @param createSubjectDto - Data Transfer Object containing subject details.
+   * @returns The created SubjectDto.
+   */
   async create(createSubjectDto: CreateSubjectDto): Promise<SubjectDto> {
-    const data: Prisma.subjectsCreateInput = {
+    const data: Prisma.SubjectCreateInput = {
       name: createSubjectDto.name,
-      lecture_hours_per_semester: createSubjectDto.lectureHoursPerSemester,
-      practice_hours_per_semester: createSubjectDto.practiceHoursPerSemester,
     };
 
-    const subject = await this.prisma.subjects.create({ data });
+    const subject = await this.prisma.subject.create({ data });
     return this.toSubjectDto(subject);
   }
 
+  /**
+   * Updates an existing subject.
+   * @param id - The ID of the subject to update.
+   * @param updateSubjectDto - Data Transfer Object containing updated subject details.
+   * @returns The updated SubjectDto.
+   * @throws NotFoundException if the subject does not exist.
+   */
   async update(id: string, updateSubjectDto: UpdateSubjectDto): Promise<SubjectDto> {
-    const subjectExists = await this.prisma.subjects.findUnique({
+    const subjectExists = await this.prisma.subject.findUnique({
       where: { id: BigInt(id) },
     });
     if (!subjectExists) {
       throw new NotFoundException('Subject not found');
     }
 
-    const data: Prisma.subjectsUpdateInput = {
+    const data: Prisma.SubjectUpdateInput = {
       name: updateSubjectDto.name,
-      lecture_hours_per_semester: updateSubjectDto.lectureHoursPerSemester,
-      practice_hours_per_semester: updateSubjectDto.practiceHoursPerSemester
     };
 
-    const subject = await this.prisma.subjects.update({
+    const subject = await this.prisma.subject.update({
       where: { id: BigInt(id) },
       data,
     });
     return this.toSubjectDto(subject);
   }
 
+  /**
+   * Removes a subject from the database.
+   * @param id - The ID of the subject to remove.
+   * @returns Void.
+   * @throws NotFoundException if the subject does not exist.
+   */
   async remove(id: string): Promise<void> {
-    const subjectExists = await this.prisma.subjects.findUnique({
+    const subjectExists = await this.prisma.subject.findUnique({
       where: { id: BigInt(id) },
     });
     if (!subjectExists) {
       throw new NotFoundException('Subject not found');
     }
-    await this.prisma.subjects.delete({
+    await this.prisma.subject.delete({
       where: { id: BigInt(id) },
     });
   }
 
+  /**
+   * Maps a Prisma Subject model to a SubjectDto.
+   * @param subject - The Prisma Subject model.
+   * @returns A SubjectDto object.
+   */
   private toSubjectDto(subject: any): SubjectDto {
     return {
       id: subject.id.toString(),
       name: subject.name,
-      hoursPerWeek: subject.hours_per_semester,
     };
   }
 }
