@@ -15,7 +15,6 @@ model Classroom {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt @default(now())
 
-  /// The events scheduled in this classroom.
   events     Event[]
 
   @@map("classrooms")
@@ -188,7 +187,6 @@ model TeachingAssignment {
   @@index([subject_id])
 }
 
-/// Enumeration for the types of lessons.
 enum LessonType {
   lecture
   practice
@@ -196,7 +194,6 @@ enum LessonType {
   seminar
 }
 
-/// Enumeration for the days of the week.
 enum DayOfWeek {
   Monday
   Tuesday
@@ -205,7 +202,6 @@ enum DayOfWeek {
   Friday
 }
 
-/// Enumeration for user roles in the system.
 enum UserRole {
   student
   teacher
