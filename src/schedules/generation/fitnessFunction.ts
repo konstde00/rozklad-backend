@@ -1,18 +1,19 @@
+
 import { WeeklySchedule, WeeklyEvent } from './types';
-import { events_day_of_week, lesson_type } from '@prisma/client';
+import { DayOfWeek, LessonType } from '@prisma/client';
 import { DataService } from '../interfaces';
 
 export function calculateFitness(
   schedule: WeeklySchedule,
   data: DataService,
-  semesterWeeks: number
+  semesterWeeks: number,
 ): number {
   let fitness = 0;
 
   const hoursMismatchPenalty = calculateHoursMismatchPenalty(
     schedule.events,
     data,
-    semesterWeeks
+    semesterWeeks,
   );
   fitness -= hoursMismatchPenalty * 100;
 
@@ -25,6 +26,60 @@ export function calculateFitness(
   fitness -= teacherHoursPenalty * 20;
 
   return fitness;
+}
+
+function calculateHoursMismatchPenalty(
+  events: WeeklyEvent[],
+  data: DataService,
+  semesterWeeks: number,
+): number {
+  let penalty = 0;
+  const groupSubjectLessonTypeHours = new Map<string, number>();
+
+  events.forEach((event) => {
+    const key = `${event.groupId}-${event.subjectId}-${event.lessonType}`;
+    const hours = 1; // Each event is 1 hour
+
+    if (groupSubjectLessonTypeHours.has(key)) {
+      groupSubjectLessonTypeHours.set(
+        key,
+        groupSubjectLessonTypeHours.get(key)! + hours,
+      );
+    } else {
+      groupSubjectLessonTypeHours.set(key, hours);
+    }
+  });
+
+  // Multiply weekly hours by the number of weeks to get total scheduled hours
+  groupSubjectLessonTypeHours.forEach((weeklyHours, key) => {
+    const totalScheduledHours = weeklyHours * semesterWeeks;
+    const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
+    const groupId = BigInt(groupIdStr);
+    const subjectId = BigInt(subjectIdStr);
+    const lessonType = lessonTypeStr as LessonType;
+
+    const assignment = data.teachingAssignments.find(
+      (ta) =>
+        ta.group_id === groupId && ta.subject_id === subjectId,
+    );
+
+    if (!assignment) return;
+
+    let requiredHours = 0;
+    if (lessonType === 'lecture') {
+      requiredHours = assignment.lecture_hours_per_semester;
+    } else if (lessonType === 'practice') {
+      requiredHours = assignment.practice_hours_per_semester;
+    } else if (lessonType === 'lab') {
+      requiredHours = assignment.lab_hours_per_semester;
+    } else if (lessonType === 'seminar') {
+      requiredHours = assignment.seminar_hours_per_semester;
+    }
+
+    penalty += Math.abs(totalScheduledHours - requiredHours);
+  });
+
+  return penalty;
 }
 
 function calculateTeacherHoursPenalty(
@@ -63,55 +118,10 @@ function calculateTeacherHoursPenalty(
   return penalty;
 }
 
-function calculateHoursMismatchPenalty(
-  events: WeeklyEvent[],
-  data: DataService,
-  semesterWeeks: number
-): number {
-  let penalty = 0;
-  const groupSubjectLessonTypeHours = new Map<string, number>();
-
-  events.forEach((event) => {
-    const key = `${event.groupId}-${event.subjectId}-${event.lessonType}`;
-    const hours = 1; // Each event is 1 hour
-
-    if (groupSubjectLessonTypeHours.has(key)) {
-      groupSubjectLessonTypeHours.set(
-        key,
-        groupSubjectLessonTypeHours.get(key)! + hours
-      );
-    } else {
-      groupSubjectLessonTypeHours.set(key, hours);
-    }
-  });
-
-  // Multiply weekly hours by the number of weeks to get total scheduled hours
-  groupSubjectLessonTypeHours.forEach((weeklyHours, key) => {
-    const totalScheduledHours = weeklyHours * semesterWeeks;
-    const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
-    const subjectId = BigInt(subjectIdStr);
-    const lessonType = lessonTypeStr as lesson_type;
-
-    const subject = data.subjects.find((s) => s.id === subjectId);
-    if (!subject) return;
-
-    let requiredHours = 0;
-    if (lessonType === 'lecture') {
-      requiredHours = subject.lecture_hours_per_semester;
-    } else if (lessonType === 'practice') {
-      requiredHours = subject.practice_hours_per_semester;
-    }
-
-    penalty += Math.abs(totalScheduledHours - requiredHours);
-  });
-
-  return penalty;
-}
-
 function countTeacherGaps(events: WeeklyEvent[]): number {
   let totalGaps = 0;
 
-  const teacherSchedules = new Map<bigint, Map<events_day_of_week, number[]>>();
+  const teacherSchedules = new Map<bigint, Map<DayOfWeek, number[]>>();
 
   events.forEach((event) => {
     const { teacherId, dayOfWeek, timeSlot } = event;
@@ -148,7 +158,7 @@ function countTeacherGaps(events: WeeklyEvent[]): number {
 function countGroupGaps(events: WeeklyEvent[]): number {
   let totalGaps = 0;
 
-  const groupSchedules = new Map<number, Map<events_day_of_week, number[]>>();
+  const groupSchedules = new Map<number, Map<DayOfWeek, number[]>>();
 
   events.forEach((event) => {
     const { groupId, dayOfWeek, timeSlot } = event;

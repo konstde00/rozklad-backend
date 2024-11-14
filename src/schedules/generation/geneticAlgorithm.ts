@@ -1,5 +1,5 @@
 
-import { events_day_of_week } from '@prisma/client';
+import { DayOfWeek, LessonType } from '@prisma/client';
 
 import { WeeklySchedule } from './types';
 import { calculateFitness } from './fitnessFunction';
@@ -30,7 +30,8 @@ export async function runGeneticAlgorithm(
 
   while (population.length < config.populationSize) {
     const individual = generateRandomWeeklySchedule(data);
-    if (!checkHardConstraints(individual.events, data)) {
+    const conflicts = checkHardConstraints(individual.events, data);
+    if (conflicts.length > 0) {
       individual.events = repairSchedule(individual.events, data);
     }
     individual.fitness = calculateFitness(individual, data, semesterWeeks);
@@ -38,7 +39,6 @@ export async function runGeneticAlgorithm(
   }
 
   for (let generation = 0; generation < config.generations; generation++) {
-
     population = selection(population);
 
     population = crossover(population, config.crossoverRate, data);
@@ -46,7 +46,8 @@ export async function runGeneticAlgorithm(
     population = mutation(population, config.mutationRate, data);
 
     population = population.map((individual) => {
-      if (!checkHardConstraints(individual.events, data)) {
+      const conflicts = checkHardConstraints(individual.events, data);
+      if (conflicts.length > 0) {
         individual.events = repairSchedule(individual.events, data);
       }
       return individual;
@@ -57,17 +58,170 @@ export async function runGeneticAlgorithm(
     });
 
     const bestFitness = Math.max(
-      ...population.map((ind) => ind.fitness),
+      ...population.map((ind) => ind.fitness ?? Number.NEGATIVE_INFINITY),
     );
     console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
   }
 
   return population.reduce((prev, current) =>
-    (prev.fitness) > (current.fitness)
+    (prev.fitness ?? Number.NEGATIVE_INFINITY) > (current.fitness ?? Number.NEGATIVE_INFINITY)
       ? prev
       : current,
   );
 }
+
+// Ensure no teacher, group, or classroom is double-booked
+// Ensure classroom capacity is sufficient
+// Ensure teacher qualifications
+// Returns an array of conflicting events, or an empty array if there are no conflicts
+function checkHardConstraints(
+  events: WeeklyEvent[],
+  data: DataService,
+): WeeklyEvent[] {
+  const eventMap = new Map<string, WeeklyEvent>();
+  const conflicts: WeeklyEvent[] = [];
+
+  for (const event of events) {
+    const key = `${event.dayOfWeek}-${event.timeSlot}`;
+
+    // Check for teacher availability
+    const teacherKey = `teacher-${event.teacherId}-${key}`;
+    if (eventMap.has(teacherKey)) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // Check for group availability
+    const groupKey = `group-${event.groupId}-${key}`;
+    if (eventMap.has(groupKey)) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // Check for classroom availability
+    const classroomKey = `classroom-${event.classroomId}-${key}`;
+    if (eventMap.has(classroomKey)) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // Check classroom capacity
+    const group = data.studentGroups.find((g) => g.id === event.groupId);
+    const classroom = data.classrooms.find((c) => c.id === event.classroomId);
+    if (classroom && group && classroom.capacity < group.students_count) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // Check teacher qualification using teachingAssignments
+    const assignmentExists = data.teachingAssignments.some(
+      (ta) =>
+        ta.teacher_id === event.teacherId &&
+        ta.group_id === event.groupId &&
+        ta.subject_id === event.subjectId &&
+        ((ta.lecture_hours_per_semester > 0 && event.lessonType === 'lecture') ||
+          (ta.practice_hours_per_semester > 0 && event.lessonType === 'practice') ||
+          (ta.lab_hours_per_semester > 0 && event.lessonType === 'lab') ||
+          (ta.seminar_hours_per_semester > 0 && event.lessonType === 'seminar')),
+    );
+
+    if (!assignmentExists) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // No conflicts detected; mark entities as booked
+    eventMap.set(teacherKey, event);
+    eventMap.set(groupKey, event);
+    eventMap.set(classroomKey, event);
+  }
+
+  return conflicts;
+}
+
+function addLesson(
+  events: WeeklyEvent[],
+  data: DataService,
+  weekdays: DayOfWeek[],
+): void {
+  // Select a random teaching assignment
+  if (data.teachingAssignments.length === 0) return;
+  const assignment =
+    data.teachingAssignments[
+      Math.floor(Math.random() * data.teachingAssignments.length)
+      ];
+
+  const group = data.studentGroups.find((g) => g.id === assignment.group_id);
+  if (!group) return;
+
+  const subject = data.subjects.find((s) => s.id === assignment.subject_id);
+  if (!subject) return;
+
+  const teacher = data.teachers.find((t) => t.id === assignment.teacher_id);
+  if (!teacher) return;
+
+  // Determine the lesson types that have remaining hours
+  const lessonTypes: LessonType[] = [];
+  if (assignment.lecture_hours_per_semester > 0) lessonTypes.push('lecture');
+  if (assignment.practice_hours_per_semester > 0) lessonTypes.push('practice');
+  if (assignment.lab_hours_per_semester > 0) lessonTypes.push('lab');
+  if (assignment.seminar_hours_per_semester > 0) lessonTypes.push('seminar');
+
+  if (lessonTypes.length === 0) return;
+
+  // Randomly select a lesson type
+  const lessonType = lessonTypes[Math.floor(Math.random() * lessonTypes.length)];
+
+  // Get suitable classrooms
+  const suitableClassrooms = data.classrooms.filter(
+    (c) => c.capacity >= group.students_count,
+  );
+  if (suitableClassrooms.length === 0) return;
+  const classroom =
+    suitableClassrooms[
+      Math.floor(Math.random() * suitableClassrooms.length)
+      ];
+
+  // Find a random day and time slot
+  const dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
+  const timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
+
+  // Check for conflicts
+  const key = `${dayOfWeek}-${timeSlot}`;
+  const teacherKey = `teacher-${teacher.id}-${key}`;
+  const groupKey = `group-${group.id}-${key}`;
+  const classroomKey = `classroom-${classroom.id}-${key}`;
+
+  const eventMap = new Map<string, WeeklyEvent>();
+  events.forEach((e) => {
+    const k = `${e.dayOfWeek}-${e.timeSlot}`;
+    eventMap.set(`teacher-${e.teacherId}-${k}`, e);
+    eventMap.set(`group-${e.groupId}-${k}`, e);
+    eventMap.set(`classroom-${e.classroomId}-${k}`, e);
+  });
+
+  if (
+    !eventMap.has(teacherKey) &&
+    !eventMap.has(groupKey) &&
+    !eventMap.has(classroomKey)
+  ) {
+    // Add a new event
+    const newEvent: WeeklyEvent = {
+      title: subject.name,
+      dayOfWeek: dayOfWeek,
+      timeSlot: timeSlot,
+      groupId: group.id,
+      teacherId: teacher.id,
+      subjectId: subject.id,
+      classroomId: classroom.id,
+      lessonType: lessonType,
+    };
+    events.push(newEvent);
+  }
+}
+
+// Other functions remain the same
+
 
 function selection(population: WeeklySchedule[]): WeeklySchedule[] {
   const selected: WeeklySchedule[] = [];
@@ -120,7 +274,7 @@ function mutation(
   mutationRate: number,
   data: DataService,
 ): WeeklySchedule[] {
-  const weekdays: events_day_of_week[] = [
+  const weekdays: DayOfWeek[] = [
     'Monday',
     'Tuesday',
     'Wednesday',
@@ -196,80 +350,6 @@ function mutation(
     }
   });
 }
-
-function addLesson(
-  events: WeeklyEvent[],
-  data: DataService,
-  weekdays: events_day_of_week[],
-): void {
-
-  const groups = data.studentGroups;
-  if (groups.length === 0) return;
-  const randomGroup = groups[Math.floor(Math.random() * groups.length)];
-
-  // Get subjects for the group
-  const groupSubjects = data.groupSubjects.filter(gs => gs.group_id === randomGroup.id);
-  if (groupSubjects.length === 0) return;
-  const randomGroupSubject = groupSubjects[Math.floor(Math.random() * groupSubjects.length)];
-
-  // Get the subject
-  const subject = data.subjects.find(s => s.id === randomGroupSubject.subject_id);
-  if (!subject) return;
-
-  // Get eligible teachers for the subject and lesson type
-  const eligibleTeachers = data.teacherSubjects.filter(
-    ts => ts.subject_id === subject.id
-  );
-  if (eligibleTeachers.length === 0) return;
-  const randomTeacherSubject = eligibleTeachers[Math.floor(Math.random() * eligibleTeachers.length)];
-  const teacher = data.teachers.find(t => t.id === randomTeacherSubject.teacher_id);
-  if (!teacher) return;
-
-  // Get suitable classrooms
-  const suitableClassrooms = data.classrooms.filter(
-    c => c.capacity >= randomGroup.students_count
-  );
-  if (suitableClassrooms.length === 0) return;
-  const classroom = suitableClassrooms[Math.floor(Math.random() * suitableClassrooms.length)];
-
-  // Find a random day and time slot
-  const dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
-  const timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
-
-  // Check for conflicts
-  const key = `${dayOfWeek}-${timeSlot}`;
-  const teacherKey = `teacher-${teacher.id}-${key}`;
-  const groupKey = `group-${randomGroup.id}-${key}`;
-  const classroomKey = `classroom-${classroom.id}-${key}`;
-
-  const eventMap = new Map<string, WeeklyEvent>();
-  events.forEach(e => {
-    const k = `${e.dayOfWeek}-${e.timeSlot}`;
-    eventMap.set(`teacher-${e.teacherId}-${k}`, e);
-    eventMap.set(`group-${e.groupId}-${k}`, e);
-    eventMap.set(`classroom-${e.classroomId}-${k}`, e);
-  });
-
-  if (
-    !eventMap.has(teacherKey) &&
-    !eventMap.has(groupKey) &&
-    !eventMap.has(classroomKey)
-  ) {
-    // Add a new event
-    const newEvent: WeeklyEvent = {
-      title: subject.name,
-      dayOfWeek: dayOfWeek,
-      timeSlot: timeSlot,
-      groupId: randomGroup.id,
-      teacherId: teacher.id,
-      subjectId: subject.id,
-      classroomId: classroom.id,
-      lessonType: randomTeacherSubject.lesson_type,
-    };
-    events.push(newEvent);
-  }
-}
-
 
 function performConstraintPreservingCrossover(
   events1: WeeklyEvent[],
@@ -354,7 +434,7 @@ function findAlternativeEventForRepair(
     'Wednesday',
     'Thursday',
     'Friday',
-  ] as events_day_of_week[];
+  ] as DayOfWeek[];
 
   for (const dayOfWeek of daysOfWeek) {
     for (
@@ -423,68 +503,4 @@ function findAlternativeEventForRepair(
   }
 
   return null; // No alternative found
-}
-
-// Ensure no teacher, group, or classroom is double-booked
-// Ensure classroom capacity is sufficient
-// Ensure teacher qualifications
-// Returns an array of conflicting events, or an empty array if there are no conflicts
-function checkHardConstraints(
-  events: WeeklyEvent[],
-  data: DataService,
-): WeeklyEvent[] {
-  const eventMap = new Map<string, WeeklyEvent>();
-  const conflicts: WeeklyEvent[] = [];
-
-  for (const event of events) {
-    const key = `${event.dayOfWeek}-${event.timeSlot}`;
-
-    // Check for teacher availability
-    const teacherKey = `teacher-${event.teacherId}-${key}`;
-    if (eventMap.has(teacherKey)) {
-      conflicts.push(event);
-      continue;
-    }
-
-    // Check for group availability
-    const groupKey = `group-${event.groupId}-${key}`;
-    if (eventMap.has(groupKey)) {
-      conflicts.push(event);
-      continue;
-    }
-
-    // Check for classroom availability
-    const classroomKey = `classroom-${event.classroomId}-${key}`;
-    if (eventMap.has(classroomKey)) {
-      conflicts.push(event);
-      continue;
-    }
-
-    // Check classroom capacity
-    const group = data.studentGroups.find((g) => g.id === event.groupId);
-    const classroom = data.classrooms.find((c) => c.id === event.classroomId);
-    if (classroom && group && classroom.capacity < group.students_count) {
-      conflicts.push(event);
-      continue;
-    }
-
-    // Check teacher qualification
-    const isQualified = data.teacherSubjects.some(
-      (ts) =>
-        ts.teacher_id === event.teacherId &&
-        ts.subject_id === event.subjectId &&
-        ts.lesson_type === event.lessonType,
-    );
-    if (!isQualified) {
-      conflicts.push(event);
-      continue;
-    }
-
-    // No conflicts detected; mark entities as booked
-    eventMap.set(teacherKey, event);
-    eventMap.set(groupKey, event);
-    eventMap.set(classroomKey, event);
-  }
-
-  return conflicts;
 }

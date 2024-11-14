@@ -1,8 +1,8 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as crypto from 'crypto';
-import { Prisma, users } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()

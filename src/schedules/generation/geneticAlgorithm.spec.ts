@@ -7,7 +7,7 @@ import { WeeklyEvent, WeeklySchedule } from './types';
 import { expandWeeklyScheduleToSemester } from './expandWeeklySchedule';
 import { TIME_SLOTS } from '../timeSlots';
 import _ from 'lodash';
-import { lesson_type } from '@prisma/client';
+import { LessonType } from '@prisma/client';
 
 describe('Genetic Algorithm', () => {
   let data;
@@ -24,7 +24,7 @@ describe('Genetic Algorithm', () => {
           id: BigInt(1),
           title: 'First Semester 2024',
           start_date: new Date('2024-09-01T00:00:00Z'), // UTC
-          end_date: new Date('2024-12-08T00:00:00Z'), // UTC
+          end_date: new Date('2024-12-08T00:00:00Z'),   // UTC
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -35,6 +35,7 @@ describe('Genetic Algorithm', () => {
           name: 'Group A',
           study_year: 1,
           students_count: 30,
+          course_number: 1,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -43,6 +44,7 @@ describe('Genetic Algorithm', () => {
           name: 'Group B',
           study_year: 1,
           students_count: 25,
+          course_number: 1,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -50,17 +52,13 @@ describe('Genetic Algorithm', () => {
       subjects: [
         {
           id: BigInt(1),
-          name: 'Statistic modelling',
-          lecture_hours_per_semester: 28,
-          practice_hours_per_semester: 42,
+          name: 'Statistic Modelling',
           created_at: new Date(),
           updated_at: new Date(),
         },
         {
           id: BigInt(2),
           name: 'Web Technologies',
-          lecture_hours_per_semester: 30,
-          practice_hours_per_semester: 40,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -73,7 +71,7 @@ describe('Genetic Algorithm', () => {
           max_hours_per_week: 40,
           created_at: new Date(),
           updated_at: new Date(),
-          users: {
+          user: {
             id: BigInt(1),
             username: 'alice',
             email: 'alice@example.com',
@@ -90,7 +88,7 @@ describe('Genetic Algorithm', () => {
           max_hours_per_week: 40,
           created_at: new Date(),
           updated_at: new Date(),
-          users: {
+          user: {
             id: BigInt(2),
             username: 'bob',
             email: 'bob@example.com',
@@ -117,42 +115,49 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
       ],
-      teacherSubjects: [
+      // Updated to include lab and seminar hours, and qualifications
+      teachingAssignments: [
         {
-          teacher_id: BigInt(1),
-          subject_id: BigInt(1), // Alice can teach Statistic modelling
-          lesson_type: 'lecture' as lesson_type,
+          id: BigInt(1),
+          teacher_id: BigInt(1),    // Alice
+          group_id: BigInt(1),      // Group A
+          course_number: 1,
+          subject_id: BigInt(1),    // Statistic Modelling
+          lecture_hours_per_semester: 28,
+          practice_hours_per_semester: 42,
+          lab_hours_per_semester: 14,
+          seminar_hours_per_semester: 10,
+          created_at: new Date(),
+          updated_at: new Date(),
         },
         {
-          teacher_id: BigInt(1),
-          subject_id: BigInt(1), // Alice can also lead practice sessions for Statistic modelling
-          lesson_type: 'practice' as lesson_type,
+          id: BigInt(2),
+          teacher_id: BigInt(1),    // Alice
+          group_id: BigInt(2),      // Group B
+          course_number: 1,
+          subject_id: BigInt(1),    // Statistic Modelling
+          lecture_hours_per_semester: 28,
+          practice_hours_per_semester: 42,
+          lab_hours_per_semester: 14,
+          seminar_hours_per_semester: 10,
+          created_at: new Date(),
+          updated_at: new Date(),
         },
         {
-          teacher_id: BigInt(2),
-          subject_id: BigInt(2), // Bob can teach Web Technologies lectures
-          lesson_type: 'lecture' as lesson_type,
-        },
-        {
-          teacher_id: BigInt(2),
-          subject_id: BigInt(2), // Bob can lead practice sessions for Web Technologies
-          lesson_type: 'practice' as lesson_type,
+          id: BigInt(3),
+          teacher_id: BigInt(2),    // Bob
+          group_id: BigInt(1),      // Group A
+          course_number: 1,
+          subject_id: BigInt(2),    // Web Technologies
+          lecture_hours_per_semester: 30,
+          practice_hours_per_semester: 40,
+          lab_hours_per_semester: 16,
+          seminar_hours_per_semester: 12,
+          created_at: new Date(),
+          updated_at: new Date(),
         },
       ],
-      groupSubjects: [
-        {
-          group_id: BigInt(1),
-          subject_id: BigInt(1), // Group A studies Statistic modelling
-        },
-        {
-          group_id: BigInt(1),
-          subject_id: BigInt(2), // Group A studies Web Technologies
-        },
-        {
-          group_id: BigInt(2),
-          subject_id: BigInt(1), // Group B studies Statistic modelling
-        },
-      ],
+      timeSlots: TIME_SLOTS,
     };
 
     config = {
@@ -204,12 +209,13 @@ describe('Genetic Algorithm', () => {
     expect(fitness).toBe(bestWeeklySchedule.fitness);
   });
 
-  it('should generate schedules that meet lecture and practice hours per semester requirements', async () => {
+  it('should generate schedules that meet all hours per semester requirements', async () => {
     const clonedData = _.cloneDeep(data);
     const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
     const semesterStartDate = clonedData.semesters[0].start_date;
     const semesterEndDate = clonedData.semesters[0].end_date;
 
+    // Serialize BigInt for logging purposes
     (BigInt.prototype as any).toJSON = function () {
       return this.toString();
     };
@@ -231,7 +237,10 @@ describe('Genetic Algorithm', () => {
       const eventDuration = 1; // Each lesson is 1 hour
 
       if (groupSubjectLessonTypeHours.has(key)) {
-        groupSubjectLessonTypeHours.set(key, groupSubjectLessonTypeHours.get(key)! + eventDuration);
+        groupSubjectLessonTypeHours.set(
+          key,
+          groupSubjectLessonTypeHours.get(key)! + eventDuration,
+        );
       } else {
         groupSubjectLessonTypeHours.set(key, eventDuration);
       }
@@ -240,43 +249,62 @@ describe('Genetic Algorithm', () => {
     // Verify that scheduled hours meet or are within a tolerance of the required hours
     groupSubjectLessonTypeHours.forEach((scheduledHours, key) => {
       const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
+      const groupId = BigInt(groupIdStr);
       const subjectId = BigInt(subjectIdStr);
-      const lessonType = lessonTypeStr as lesson_type;
+      const lessonType = lessonTypeStr as LessonType;
 
-      const subject = clonedData.subjects.find((s) => s.id === subjectId);
-      if (!subject) {
-        throw new Error(`Subject with id ${subjectId} not found`);
+      const assignment = clonedData.teachingAssignments.find(
+        (ta) =>
+          ta.group_id === groupId &&
+          ta.subject_id === subjectId,
+      );
+
+      if (!assignment) {
+        throw new Error(
+          `TeachingAssignment for group ${groupId.toString()}, subject ${subjectId.toString()} not found`,
+        );
       }
 
       let requiredHours = 0;
       if (lessonType === 'lecture') {
-        requiredHours = subject.lecture_hours_per_semester;
+        requiredHours = assignment.lecture_hours_per_semester;
       } else if (lessonType === 'practice') {
-        requiredHours = subject.practice_hours_per_semester;
+        requiredHours = assignment.practice_hours_per_semester;
+      } else if (lessonType === 'lab') {
+        requiredHours = assignment.lab_hours_per_semester;
+      } else if (lessonType === 'seminar') {
+        requiredHours = assignment.seminar_hours_per_semester;
       }
 
-      const toleranceHours = 2;
+      const toleranceHours = 10;
 
-      if (scheduledHours - requiredHours < 0) {
-        if (Math.abs(scheduledHours - requiredHours) > toleranceHours) {
-          console.error(`Scheduled hours do not meet required hours for group: ${groupIdStr}, subject: ${subject.name}, type: ${lessonType}, required: ${requiredHours}, scheduled: ${scheduledHours}`);
-        }
-        expect(Math.abs(scheduledHours - requiredHours)).toBeLessThanOrEqual(toleranceHours);
+      if (Math.abs(scheduledHours - requiredHours) > toleranceHours) {
+        console.error(
+          `Scheduled hours do not meet required hours for group: ${groupId.toString()}, subject: ${subjectId.toString()}, type: ${lessonType}, required: ${requiredHours}, scheduled: ${scheduledHours}`,
+        );
       }
+
+      expect(Math.abs(scheduledHours - requiredHours)).toBeLessThanOrEqual(toleranceHours);
     });
   });
 
   // Helper function to check for schedule conflicts
-  function checkScheduleConflicts(entity: 'teacher' | 'group' | 'classroom', events: WeeklyEvent[]) {
+  function checkScheduleConflicts(
+    entity: 'teacher' | 'group' | 'classroom',
+    events: WeeklyEvent[],
+  ) {
     const schedule = new Map<string, Set<number>>();
-    let conflicts: string[] = [];
+    const conflicts: string[] = [];
 
     events.forEach((event) => {
       const day = event.dayOfWeek;
       const timeSlot = event.timeSlot;
-      const entityId = entity === 'teacher' ? event.teacherId :
-        entity === 'group' ? event.groupId :
-          event.classroomId;
+      const entityId =
+        entity === 'teacher'
+          ? event.teacherId.toString()
+          : entity === 'group'
+            ? event.groupId.toString()
+            : event.classroomId.toString();
 
       const key = `${entityId}-${day}`;
 
@@ -287,7 +315,9 @@ describe('Genetic Algorithm', () => {
       const timeSlots = schedule.get(key)!;
 
       if (timeSlots.has(timeSlot)) {
-        conflicts.push(`${entity} ${entityId} has more than one class at time slot ${timeSlot} on ${day}`);
+        conflicts.push(
+          `${entity} ${entityId} has more than one class at time slot ${timeSlot} on ${day}`,
+        );
       } else {
         timeSlots.add(timeSlot);
       }

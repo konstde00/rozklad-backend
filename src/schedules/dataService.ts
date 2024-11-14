@@ -1,15 +1,17 @@
+
 import { PrismaClient } from '@prisma/client';
+import { TIME_SLOTS } from './timeSlots';
 
 const prisma = new PrismaClient();
 
 export async function getInitialData() {
-  const semesters = await prisma.semesters.findMany();
-  const studentGroups = await prisma.student_groups.findMany();
-  const subjects = await prisma.subjects.findMany();
-  const teachers = await prisma.teachers.findMany();
+  const semesters = await prisma.semester.findMany();
+  const studentGroups = await prisma.studentGroup.findMany();
+  const subjects = await prisma.subject.findMany();
+  const teachers = await prisma.teacher.findMany();
   const classrooms = await prisma.classroom.findMany();
-  const teacherSubjects = await prisma.teacher_subjects.findMany();
-  const groupSubjects = await prisma.group_subjects.findMany();
+  const teachingAssignments = await prisma.teachingAssignment.findMany();
+  const timeSlots = TIME_SLOTS;
 
   return {
     semesters,
@@ -17,8 +19,8 @@ export async function getInitialData() {
     subjects,
     teachers,
     classrooms,
-    teacherSubjects,
-    groupSubjects,
+    teachingAssignments,
+    timeSlots,
   };
 }
 

@@ -12,6 +12,6 @@ export interface DataService {
   subjects: any[];
   teachers: any[];
   classrooms: any[];
-  teacherSubjects: any[];
-  groupSubjects: any[];
+  teachingAssignments: any[];
+  timeSlots: any[];
 }

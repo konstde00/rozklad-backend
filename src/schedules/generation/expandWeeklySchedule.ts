@@ -1,6 +1,6 @@
 
 import { WeeklySchedule } from './types';
-import { events as PrismaEvent } from '@prisma/client';
+import { Event as PrismaEvent } from '@prisma/client';
 import { TIME_SLOTS } from '../timeSlots';
 
 export async function expandWeeklyScheduleToSemester(
