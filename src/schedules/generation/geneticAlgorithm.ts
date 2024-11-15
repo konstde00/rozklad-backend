@@ -20,7 +20,7 @@ export async function runGeneticAlgorithm(
 
   let semester = data.semesters.find((s) => s.id === semesterId);
   if (!semester) {
-    throw new Error('Semester not found');
+    throw new Error(`Semester with id ${semesterId} not found`);
   }
 
   const semesterWeeks = calculateSemesterWeeks(

@@ -1,3 +1,4 @@
+// schedules.service.ts
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +10,8 @@ import { expandWeeklyScheduleToSemester } from './generation/expandWeeklySchedul
 import { GeneticAlgorithmConfig } from './interfaces';
 import { WeeklySchedule } from './generation/types';
 import { DataService } from './interfaces';
+import { EventDto } from './dto/event.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class SchedulesService {
@@ -20,10 +23,17 @@ export class SchedulesService {
    * @returns An array of ScheduleDto.
    */
   async findBySemesterId(semesterId: string): Promise<ScheduleDto[]> {
-    const schedules = await this.prisma.schedules.findMany({
+    const schedules = await this.prisma.schedule.findMany({
       where: { semester_id: BigInt(semesterId) },
       include: {
-        events: true,
+        events: {
+          include: {
+            studentGroup: true,
+            teacher: true,
+            subject: true,
+            classroom: true,
+          },
+        },
         semester: true,
       },
     });
@@ -45,7 +55,7 @@ export class SchedulesService {
   ): Promise<ScheduleDto> {
     const semesterId = BigInt(generateScheduleDto.semesterId);
 
-    const semester = await this.prisma.semesters.findUnique({
+    const semester = await this.prisma.semester.findUnique({
       where: { id: semesterId },
     });
 
@@ -55,11 +65,12 @@ export class SchedulesService {
 
     const data: DataService = await getInitialData();
 
+    // Merge default config with any provided in the DTO
     const config: GeneticAlgorithmConfig = {
-      populationSize: 50,
-      crossoverRate: 0.7,
-      mutationRate: 0.1,
-      generations: 100,
+      populationSize: generateScheduleDto.config?.populationSize || 50,
+      crossoverRate: generateScheduleDto.config?.crossoverRate || 0.7,
+      mutationRate: generateScheduleDto.config?.mutationRate || 0.1,
+      generations: generateScheduleDto.config?.generations || 100,
     };
 
     const bestWeeklySchedule: WeeklySchedule = await runGeneticAlgorithm(
@@ -78,7 +89,7 @@ export class SchedulesService {
 
     console.log('Total Events Generated:', fullSemesterEvents.length);
 
-    const createdSchedule = await this.prisma.schedules.create({
+    const createdSchedule = await this.prisma.schedule.create({
       data: {
         name: `Schedule for Semester ${semester.id}`,
         semester_id: semesterId,
@@ -87,16 +98,27 @@ export class SchedulesService {
 
     await this.createEventsForSchedule(createdSchedule.id, fullSemesterEvents);
 
-    const completeSchedule = await this.prisma.schedules.findUnique({
+    const completeSchedule = await this.prisma.schedule.findUnique({
       where: { id: createdSchedule.id },
-      include: { events: true, semester: true },
+      include: {
+        events: {
+          include: {
+            studentGroup: true,
+            teacher: true,
+            subject: true,
+            classroom: true,
+          },
+        },
+        semester: true,
+      },
     });
 
     return this.toScheduleDto(completeSchedule);
   }
 
   /**
-   * Persists events associated with a schedule into the database.
+   * Persists events associated with a schedule into the database within a transaction.
+   * @param prisma - Prisma transaction client.
    * @param scheduleId - The ID of the schedule.
    * @param events - An array of events to be created.
    */
@@ -108,19 +130,19 @@ export class SchedulesService {
 
     const eventData = events.map((event) => ({
       title: event.title,
-      day_of_week: event.dayOfWeek,
-      start_time: event.startTime,
-      end_time: event.endTime,
+      day_of_week: event.day_of_week,
+      start_time: event.start_time,
+      end_time: event.end_time,
       schedule_id: scheduleId,
-      group_id: event.groupId,
-      teacher_id: event.teacherId,
-      subject_id: event.subjectId,
-      classroom_id: event.classroomId,
-      lesson_type: event.lessonType,
+      group_id: event.group_id,
+      teacher_id: event.teacher_id,
+      subject_id: event.subject_id,
+      classroom_id: event.classroom_id,
+      lesson_type: event.lesson_type,
     }));
 
     try {
-      await this.prisma.events.createMany({
+      await this.prisma.event.createMany({
         data: eventData,
         skipDuplicates: true,
       });
@@ -136,17 +158,27 @@ export class SchedulesService {
    * @param schedule - The schedule entity from Prisma.
    * @returns A ScheduleDto.
    */
-  private toScheduleDto(schedule: any): ScheduleDto {
+  private toScheduleDto(schedule: Prisma.ScheduleGetPayload<{
+    include: {
+      events: {
+        include: {
+          studentGroup: true;
+          teacher: true;
+          subject: true;
+          classroom: true;
+        };
+      };
+      semester: true;
+    };
+  }>): ScheduleDto {
     return {
       id: schedule.id.toString(),
       name: schedule.name,
-      ownerId: schedule.owner_id ? schedule.owner_id.toString() : null,
       semesterId: schedule.semester_id.toString(),
       semesterTitle: schedule.semester.title,
       events: schedule.events.map((event) => ({
         id: event.id.toString(),
         title: event.title,
-        description: event.description,
         dayOfWeek: event.day_of_week,
         startTime: event.start_time.toISOString().substring(11, 16), // Format as HH:MM
         endTime: event.end_time.toISOString().substring(11, 16),     // Format as HH:MM
