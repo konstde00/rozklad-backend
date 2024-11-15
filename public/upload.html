@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Завантажити файл для парсингу</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .upload-form input[type="file"] {
+            margin: 10px;
+        }
+
+        .upload-form button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .upload-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Завантажити файл для парсингу</h1>
+    <form class="upload-form" id="uploadForm">
+        <input type="file" id="fileInput" name="file" accept=".xlsx, .xls, .csv" required>
+        <button type="submit">Завантажити</button>
+    </form>
+
+    <div id="output" style="margin-top: 20px; font-family: Arial, sans-serif;"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('http://localhost:3001/excelparser/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Помилка завантаження файлу');
+                }
+
+                // Отримати дані з файлу teacher_data.json
+                const dataResponse = await fetch('http://localhost:3001/excelparser/teacher-data');
+                if (!dataResponse.ok) {
+                    throw new Error('Не вдалося отримати дані з файлу');
+                }
+
+                const result = await dataResponse.json();
+                const outputDiv = document.getElementById('output');
+                outputDiv.innerHTML = '';
+
+                if (Array.isArray(result)) {
+                    result.forEach((teacher) => {
+                        const teacherInfo = `
+                            <h3>Ім'я викладача: ${teacher['teacher-name']}</h3>
+                            <p>Предмет: ${teacher['subject']}</p>
+                            <p>Курс: ${teacher['course']}</p>
+                            <p>Лекції: ${teacher['lec']}</p>
+                            <p>Лабораторні: ${teacher['lab']}</p>
+                            <p>Семінари: ${teacher['sem']}</p>
+                            <p>Практичні: ${teacher['pract']}</p>
+                            <hr>
+                        `;
+                        outputDiv.innerHTML += teacherInfo;
+                    });
+                } else {
+                    outputDiv.innerHTML = '<p>Дані не відповідають очікуваному формату</p>';
+                }
+            } catch (error) {
+                console.error('Помилка:', error);
+                alert('Сталася помилка. Перевірте правильність файлу.');
+            }
+        });
+    </script>
+
+</body>
+
+</html>

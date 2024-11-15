@@ -1,29 +1,38 @@
-
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { BigIntInterceptor } from './bigint.interceptor';
+import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as path from 'path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-	const config = new DocumentBuilder()
-		.setTitle('API',)
-		.setDescription('Description',)
-		.setVersion('1.0',)
-		.build()
-  
-	const document = SwaggerModule.createDocument(app, config,)
-	SwaggerModule.setup('docs', app, document,)
+  app.enableCors({
+    origin: 'http://localhost:4200', // Змініть відповідно до порту фронтенду
+    methods: 'GET,POST',
+    allowedHeaders: 'Content-Type',
+  });
 
-	app.enableCors({
-		origin:      [process.env.FRONTEND_REDIRECT_URL,],
-		credentials: true,
-	},)
+  // Налаштування для статичних файлів у папці 'public'
+  app.useStaticAssets(path.join(__dirname, '..', 'public'));
+
+  // Включаємо валідаційні піди
+  app.useGlobalPipes(new ValidationPipe());
+
+  // Налаштування Swagger
+  const config = new DocumentBuilder()
+    .setTitle('Excel Parser API')
+    .setDescription('API для парсингу Excel-файлів')
+    .setVersion('1.0')
+    .addTag('Excel Parser')
+    .build();
   
-  app.useGlobalInterceptors(new BigIntInterceptor());
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document); // Створюємо Swagger за адресою /docs
+
+  // Запуск додатку
   await app.listen(3001);
 }
+
 bootstrap();
