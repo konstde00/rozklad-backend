@@ -1,8 +1,11 @@
-import { SubjectDto } from './subject.dto';
+
+import { TeachingAssignmentDto } from './teaching-assignment.dto';
 
 export class GroupDto {
   id: string;
   name: string;
+  study_year: number;
   students_count: number;
-  subjects: SubjectDto[];
+  course_number: number;
+  teachingAssignments: TeachingAssignmentDto[];
 }

@@ -14,7 +14,7 @@ export class SemestersService {
    * @returns The created semester
    */
   async create(createSemesterDto: CreateSemesterDto) {
-    const semester = await this.prisma.semesters.create({
+    const semester = await this.prisma.semester.create({
       data: {
         title: createSemesterDto.title,
         start_date: new Date(createSemesterDto.start_date),
@@ -29,7 +29,7 @@ export class SemestersService {
    * @returns An array of semesters
    */
   async findAll() {
-    const semesters = await this.prisma.semesters.findMany({
+    const semesters = await this.prisma.semester.findMany({
       include: {
         schedules: true, // Include related schedules if needed
       },
@@ -43,7 +43,7 @@ export class SemestersService {
    * @returns The semester with the given ID
    */
   async findOne(id: bigint) {
-    const semester = await this.prisma.semesters.findUnique({
+    const semester = await this.prisma.semester.findUnique({
       where: { id },
       include: {
         schedules: true,
@@ -64,7 +64,7 @@ export class SemestersService {
   async update(id: bigint, updateSemesterDto: UpdateSemesterDto) {
     await this.findOne(id); // Ensure the semester exists
 
-    const updatedSemester = await this.prisma.semesters.update({
+    const updatedSemester = await this.prisma.semester.update({
       where: { id },
       data: {
         title: updateSemesterDto.title,
@@ -88,7 +88,7 @@ export class SemestersService {
   async remove(id: bigint) {
     await this.findOne(id); // Ensure the semester exists
 
-    const deletedSemester = await this.prisma.semesters.delete({
+    const deletedSemester = await this.prisma.semester.delete({
       where: { id },
     });
 

@@ -7,5 +7,9 @@ export class CreateSubjectDto {
 
   @IsNotEmpty()
   @IsInt()
-  hoursPerWeek: number;
+  lectureHoursPerSemester: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  practiceHoursPerSemester: number;
 }

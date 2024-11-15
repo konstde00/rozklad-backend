@@ -8,7 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubjectDto } from './subject.dto';
+import { TeachingAssignmentDto } from './teaching-assignment.dto';
 
 export class CreateGroupDto {
   @IsNotEmpty()
@@ -20,12 +20,14 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsInt()
-  students_count: number;
+  students_count?: number;
 
-  @IsNotEmpty()
+  @IsInt()
+  course_number: number;
+
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
-  @Type(() => SubjectDto)
-  subjects: SubjectDto[];
+  @Type(() => TeachingAssignmentDto)
+  teachingAssignments?: TeachingAssignmentDto[];
 }

@@ -7,128 +7,202 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Represents a physical classroom where events (lessons) take place.
 model Classroom {
   id         Int      @id @default(autoincrement())
   name       String   @db.VarChar(100)
   capacity   Int
   created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  updated_at DateTime @updatedAt @default(now())
+
+  events     Event[]
 
   @@map("classrooms")
 }
 
-model events {
-  id             BigInt             @id @default(autoincrement())
-  title          String             @db.VarChar(100)
-  description    String?            @db.Text
-  day_of_week    events_day_of_week
-  start_time     DateTime           @db.Time(0)
-  end_time       DateTime           @db.Time(0)
+/// Represents a scheduled lesson or class session.
+/// Includes information about time, location, subject, teacher, and student group.
+model Event {
+  id             BigInt      @id @default(autoincrement())
+  title          String      @db.VarChar(100)
+  day_of_week    DayOfWeek
+  start_time     DateTime    @db.DateTime(6)
+  end_time       DateTime    @db.DateTime(6)
   schedule_id    BigInt
   group_id       BigInt
-  created_at     DateTime?          @default(now()) @db.Timestamp(0)
-  updated_at     DateTime?          @default(now()) @db.Timestamp(0)
-  schedules      schedules          @relation(fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "events_ibfk_1")
-  student_groups student_groups     @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "events_ibfk_2")
-
-  @@index([group_id], map: "group_id")
-  @@index([schedule_id], map: "schedule_id")
-}
-
-model group_subjects {
-  group_id       BigInt
+  teacher_id     BigInt
+  classroom_id   Int
   subject_id     BigInt
-  student_groups student_groups @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "group_subjects_ibfk_1")
-  subjects       subjects       @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "group_subjects_ibfk_2")
+  lesson_type    LessonType
+  created_at     DateTime?   @default(now())
+  updated_at     DateTime?   @default(now())
 
-  @@id([group_id, subject_id])
-  @@index([subject_id], map: "subject_id")
+  /// The schedule to which this event belongs.
+  schedule       Schedule     @relation(fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The student group attending this event.
+  studentGroup   StudentGroup @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The teacher conducting this event.
+  teacher        Teacher      @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The classroom where this event takes place.
+  classroom      Classroom    @relation(fields: [classroom_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The subject being taught in this event.
+  subject        Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([group_id])
+  @@index([schedule_id])
+  @@index([teacher_id])
+  @@index([classroom_id])
+  @@index([subject_id])
 }
 
-model schedules {
+/// Represents a collection of events (classes) for a particular semester.
+model Schedule {
   id          BigInt    @id @default(autoincrement())
   name        String    @db.VarChar(100)
   semester_id BigInt
-  created_at  DateTime? @default(now()) @db.Timestamp(0)
-  updated_at  DateTime? @default(now()) @db.Timestamp(0)
-  events      events[]
-  semester    semesters @relation(fields: [semester_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "schedules_ibfk_2")
+  created_at  DateTime? @default(now())
+  updated_at  DateTime? @default(now())
 
-  @@index([semester_id], map: "semester_id")
+  /// The events included in this schedule.
+  events      Event[]
+  /// The semester to which this schedule is associated.
+  semester    Semester  @relation(fields: [semester_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([semester_id])
 }
 
-model semesters {
-  id         BigInt      @id @default(autoincrement())
-  title      String      @db.VarChar(100)
-  start_date DateTime    @db.Date
-  end_date   DateTime    @db.Date
-  created_at DateTime?   @default(now()) @db.Timestamp(0)
-  updated_at DateTime?   @default(now()) @db.Timestamp(0)
-  schedules  schedules[]
+/// Represents an academic semester with a title and start/end dates.
+model Semester {
+  id         BigInt     @id @default(autoincrement())
+  title      String     @db.VarChar(100)
+  start_date DateTime   @db.Date
+  end_date   DateTime   @db.Date
+  created_at DateTime?  @default(now())
+  updated_at DateTime?  @default(now())
+
+  /// The schedules associated with this semester.
+  schedules  Schedule[]
 }
 
-model student_groups {
-  id             BigInt           @id @default(autoincrement())
-  name           String           @db.VarChar(100)
+/// Represents a group of students.
+model StudentGroup {
+  id             BigInt              @id @default(autoincrement())
+  name           String              @db.VarChar(100)
   study_year     Int
   students_count Int
-  created_at     DateTime?        @default(now()) @db.Timestamp(0)
-  updated_at     DateTime?        @default(now()) @db.Timestamp(0)
-  events         events[]
-  group_subjects group_subjects[]
+  course_number  Int
+  created_at     DateTime?           @default(now())
+  updated_at     DateTime?           @default(now())
+
+  /// The teaching assignments for this group.
+  teachingAssignments TeachingAssignment[]
+  /// The events that this group participates in.
+  events              Event[]
+
+  @@index([course_number])
 }
 
-model subjects {
+/// Represents an academic subject or course.
+model Subject {
+  id           BigInt             @id @default(autoincrement())
+  name         String             @db.VarChar(100)
+  created_at   DateTime?          @default(now())
+  updated_at   DateTime?          @default(now())
+
+  /// The teaching assignments involving this subject.
+  teachingAssignments TeachingAssignment[]
+  /// The events where this subject is taught.
+  events              Event[]
+}
+
+/// Represents an instructor or professor.
+/// Includes personal details and their maximum teaching hours per week.
+model Teacher {
   id                 BigInt             @id @default(autoincrement())
-  name               String             @db.VarChar(100)
-  hours_per_semester Int
-  created_at         DateTime?          @default(now()) @db.Timestamp(0)
-  updated_at         DateTime?          @default(now()) @db.Timestamp(0)
-  group_subjects     group_subjects[]
-  teacher_subjects   teacher_subjects[]
-}
-
-model teacher_subjects {
-  teacher_id BigInt
-  subject_id BigInt
-  teachers   teachers @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_subjects_ibfk_1")
-  subjects   subjects @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_subjects_ibfk_2")
-
-  @@id([teacher_id, subject_id])
-  @@index([subject_id], map: "subject_id")
-}
-
-model teachers {
-  id                 BigInt             @id @default(autoincrement())
+  first_name         String             @db.VarChar(100)
+  last_name          String             @db.VarChar(100)
   max_hours_per_week Int
-  created_at         DateTime?          @default(now()) @db.Timestamp(0)
-  updated_at         DateTime?          @default(now()) @db.Timestamp(0)
-  teacher_subjects   teacher_subjects[]
-  users              users              @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teachers_ibfk_1")
+  created_at         DateTime?          @default(now())
+  updated_at         DateTime?          @default(now())
+
+  /// The teaching assignments for this teacher.
+  teachingAssignments TeachingAssignment[]
+  /// The events that this teacher conducts.
+  events              Event[]
+  /// The user account associated with this teacher.
+  user                User              @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-model users {
+/// Represents a system user.
+/// Includes authentication details and the user's role.
+model User {
   id              BigInt      @id @default(autoincrement())
   username        String      @db.VarChar(50)
-  email           String      @unique(map: "email") @db.VarChar(100)
+  email           String      @unique @db.VarChar(100)
   password_hash   String      @db.VarChar(255)
-  role            users_role
-  created_at      DateTime?   @default(now()) @db.Timestamp(0)
-  updated_at      DateTime?   @default(now()) @db.Timestamp(0)
-  teachers        teachers?
+  role            UserRole
+  created_at      DateTime?   @default(now())
+  updated_at      DateTime?   @default(now())
+
+  /// The teacher profile associated with this user, if applicable.
+  teacher         Teacher?
 }
 
-enum events_day_of_week {
+/// Represents a field of study or specialization.
+/// Associated with multiple courses.
+model Speciality {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  code        Int       @db.Int
+  created_at  DateTime? @default(now())
+  updated_at  DateTime? @default(now())
+}
+
+/// Represents the assignment of a teacher to teach a specific subject to a group,
+/// within a specific course, specifying the lesson types and hours per semester.
+model TeachingAssignment {
+  id                          BigInt      @id @default(autoincrement())
+  teacher_id                  BigInt
+  group_id                    BigInt
+  course_number               Int
+  subject_id                  BigInt
+  lecture_hours_per_semester  Int
+  practice_hours_per_semester Int
+  lab_hours_per_semester      Int
+  seminar_hours_per_semester  Int
+  created_at                  DateTime?   @default(now())
+  updated_at                  DateTime?   @default(now())
+
+  /// The teacher assigned to teach.
+  teacher       Teacher       @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The student group assigned to be taught.
+  studentGroup  StudentGroup  @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The subject to be taught.
+  subject       Subject       @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([teacher_id, group_id, course_number, subject_id])
+  @@index([teacher_id])
+  @@index([group_id])
+  @@index([course_number])
+  @@index([subject_id])
+}
+
+enum LessonType {
+  lecture
+  practice
+  lab
+  seminar
+}
+
+enum DayOfWeek {
   Monday
   Tuesday
   Wednesday
   Thursday
   Friday
-  Saturday
-  Sunday
 }
 
-enum users_role {
+enum UserRole {
   student
   teacher
   faculty_admin
