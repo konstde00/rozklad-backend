@@ -180,12 +180,104 @@ export class SchedulesService {
         id: event.id.toString(),
         title: event.title,
         dayOfWeek: event.day_of_week,
-        startTime: event.start_time.toISOString().substring(11, 16), // Format as HH:MM
-        endTime: event.end_time.toISOString().substring(11, 16),     // Format as HH:MM
+        startTime: this.formatTimeWithTimezone(event.start_time),
+        endTime: this.formatTimeWithTimezone(event.end_time),
         scheduleId: event.schedule_id.toString(),
-        groupId: event.group_id.toString(),
+        groupName: event.studentGroup.name,
+        teacherName: `${event.teacher.first_name} ${event.teacher.last_name}`,
+        subjectName: event.subject.name,
+        classroomName: event.classroom.name,
         lessonType: event.lesson_type,
       })),
     };
+  }
+
+  /**
+   * Fetches events within the specified date range (inclusive).
+   * @param startDate - The start date in 'YYYY-MM-DD' format.
+   * @param endDate - The end date in 'YYYY-MM-DD' format.
+   * @returns An array of EventDto.
+   */
+  async getEventsByDateRange(
+    startDate: string,
+    endDate: string,
+  ): Promise<EventDto[]> {
+    // Parse dates and ensure they are valid
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD.');
+    }
+
+    // Adjust dates by +3 hours for timezone difference
+    const adjustedStart = new Date(start.getTime() + 3 * 60 * 60 * 1000);
+    const adjustedEnd = new Date(end.getTime() + 3 * 60 * 60 * 1000);
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        AND: [
+          {
+            start_time: {
+              gte: adjustedStart,
+            },
+          },
+          {
+            end_time: {
+              lte: adjustedEnd,
+            },
+          },
+        ],
+      },
+      include: {
+        studentGroup: true,
+        teacher: true,
+        subject: true,
+        classroom: true,
+      },
+    });
+
+    return events.map((event) => ({
+      id: event.id.toString(),
+      title: event.title,
+      dayOfWeek: event.day_of_week,
+      date: this.formatDateWithTimezone(event.start_time),
+      startTime: this.formatTimeWithTimezone(event.start_time),
+      endTime: this.formatTimeWithTimezone(event.end_time),
+      scheduleId: event.schedule_id.toString(),
+      groupName: event.studentGroup.name,
+      teacherName: `${event.teacher.first_name} ${event.teacher.last_name}`,
+      subjectName: event.subject.name,
+      classroomName: event.classroom.name,
+      lessonType: event.lesson_type,
+    }));
+  }
+
+  /**
+   * Formats a Date object to a string in HH:MM format and adds 3 hours for timezone difference.
+   * @param date - The Date object to format.
+   * @returns A string representing the time in HH:MM format adjusted by +3 hours.
+   */
+  private formatTimeWithTimezone(date: Date): string {
+    // Create a new Date instance to avoid mutating the original date
+    const adjustedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // Add 3 hours
+
+    const hours = adjustedDate.getHours().toString().padStart(2, '0');
+    const minutes = adjustedDate.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  /**
+   * Formats a Date object to a string in YYYY-MM-DD format and adds 3 hours for timezone difference.
+   * @param date - The Date object to format.
+   * @returns A string representing the date in YYYY-MM-DD format adjusted by +3 hours.
+   */
+  private formatDateWithTimezone(date: Date): string {
+    const adjustedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // Add 3 hours
+
+    const year = adjustedDate.getFullYear();
+    const month = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = adjustedDate.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }
