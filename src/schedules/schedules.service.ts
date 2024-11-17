@@ -20,7 +20,7 @@ export class SchedulesService {
    * @returns An array of ScheduleDto.
    */
   async findBySemesterId(semesterId: string): Promise<ScheduleDto[]> {
-    const schedules = await this.prisma.schedules.findMany({
+    const schedules = await this.prisma.schedule.findMany({
       where: { semester_id: BigInt(semesterId) },
       include: {
         events: true,
@@ -45,7 +45,7 @@ export class SchedulesService {
   ): Promise<ScheduleDto> {
     const semesterId = BigInt(generateScheduleDto.semesterId);
 
-    const semester = await this.prisma.semesters.findUnique({
+    const semester = await this.prisma.semester.findUnique({
       where: { id: semesterId },
     });
 
@@ -78,7 +78,7 @@ export class SchedulesService {
 
     console.log('Total Events Generated:', fullSemesterEvents.length);
 
-    const createdSchedule = await this.prisma.schedules.create({
+    const createdSchedule = await this.prisma.schedule.create({
       data: {
         name: `Schedule for Semester ${semester.id}`,
         semester_id: semesterId,
@@ -87,7 +87,7 @@ export class SchedulesService {
 
     await this.createEventsForSchedule(createdSchedule.id, fullSemesterEvents);
 
-    const completeSchedule = await this.prisma.schedules.findUnique({
+    const completeSchedule = await this.prisma.schedule.findUnique({
       where: { id: createdSchedule.id },
       include: { events: true, semester: true },
     });
@@ -120,7 +120,7 @@ export class SchedulesService {
     }));
 
     try {
-      await this.prisma.events.createMany({
+      await this.prisma.event.createMany({
         data: eventData,
         skipDuplicates: true,
       });
