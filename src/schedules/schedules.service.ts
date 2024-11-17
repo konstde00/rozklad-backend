@@ -108,15 +108,15 @@ export class SchedulesService {
 
     const eventData = events.map((event) => ({
       title: event.title,
-      day_of_week: event.dayOfWeek,
-      start_time: event.startTime,
-      end_time: event.endTime,
+      day_of_week: event.day_of_week,
+      start_time: event.start_time,
+      end_time: event.end_time,
       schedule_id: scheduleId,
-      group_id: event.groupId,
-      teacher_id: event.teacherId,
-      subject_id: event.subjectId,
-      classroom_id: event.classroomId,
-      lesson_type: event.lessonType,
+      group_id: event.group_id,
+      teacher_id: event.teacher_id,
+      subject_id: event.subject_id,
+      classroom_id: event.classroom_id,
+      lesson_type: event.lesson_type,
     }));
 
     try {
