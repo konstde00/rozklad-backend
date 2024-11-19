@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: University Schedule Management API
-  version: '1.3'
+  version: '1.4'
   description: >
     API for managing university schedules, classes, user registration, and schedule generation on a weekly basis per semester.
 servers:
@@ -88,11 +88,10 @@ components:
           type: string
         name:
           type: string
-        ownerId:
+        semesterId:
           type: string
-        semester:
+        semesterTitle:
           type: string
-          description: Semester for which the schedule is valid
         events:
           type: array
           items:
@@ -100,16 +99,24 @@ components:
       example:
         id: "sched_123"
         name: "Fall Semester Schedule"
-        ownerId: "user_1"
-        semester: "Fall 2024"
+        semesterId: "1"
+        semesterTitle: "Fall 2024"
         events:
-          - $ref: '#/components/schemas/Event'
+          - id: "event_456"
+            title: "Physics Lecture"
+            description: "Introduction to Mechanics"
+            date: "2024-09-01"
+            dayOfWeek: "Monday"
+            startTime: "09:00"
+            endTime: "10:30"
+            scheduleId: "sched_123"
+            groupId: "group_789"
 
     Event:
       type: object
       required:
         - title
-        - dayOfWeek
+        - date
         - startTime
         - endTime
         - scheduleId
@@ -121,6 +128,10 @@ components:
           type: string
         description:
           type: string
+        date:
+          type: string
+          format: date
+          description: Date of the event in 'YYYY-MM-DD' format
         dayOfWeek:
           type: string
           enum:
@@ -149,6 +160,7 @@ components:
         id: "event_456"
         title: "Physics Lecture"
         description: "Introduction to Mechanics"
+        date: "2024-09-01"
         dayOfWeek: "Monday"
         startTime: "09:00"
         endTime: "10:30"
@@ -197,7 +209,9 @@ components:
         id: "group_789"
         name: "Group A"
         subjects:
-          - $ref: '#/components/schemas/Subject'
+          - id: "subject_101"
+            name: "Calculus I"
+            hoursPerWeek: 4
 
     Teacher:
       type: object
@@ -233,10 +247,42 @@ components:
         - semesterId
       properties:
         semesterId:
-          type: number
-          description: Semester id for which the schedule is to be generated
+          type: string
+          description: Semester ID for which the schedule is to be generated
+        config:
+          $ref: '#/components/schemas/GeneticAlgorithmConfigDto'
       example:
-        semester: 123
+        semesterId: "1"
+        config:
+          populationSize: 100
+          crossoverRate: 0.8
+          mutationRate: 0.01
+          generations: 50
+
+    GeneticAlgorithmConfigDto:
+      type: object
+      properties:
+        populationSize:
+          type: integer
+          minimum: 1
+        crossoverRate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        mutationRate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        generations:
+          type: integer
+          minimum: 1
+      example:
+        populationSize: 100
+        crossoverRate: 0.8
+        mutationRate: 0.01
+        generations: 50
 
     Classroom:
       type: object
@@ -481,16 +527,16 @@ paths:
               type: object
               required:
                 - name
-                - semester
+                - semesterId
               properties:
                 name:
                   type: string
-                semester:
+                semesterId:
                   type: string
-                  description: Semester for which the schedule is valid
+                  description: ID of the semester for which the schedule is valid
               example:
                 name: "Fall Semester Schedule"
-                semester: "Fall 2024"
+                semesterId: "1"
       responses:
         '201':
           description: Schedule created
@@ -548,12 +594,12 @@ paths:
               properties:
                 name:
                   type: string
-                semester:
+                semesterId:
                   type: string
-                  description: Semester for which the schedule is valid
+                  description: ID of the semester for which the schedule is valid
               example:
                 name: "Updated Fall Semester Schedule"
-                semester: "Fall 2024"
+                semesterId: "1"
       responses:
         '200':
           description: Schedule updated
@@ -586,6 +632,102 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /v1/schedules/semester/{semesterId}:
+    get:
+      tags:
+        - Schedules
+      summary: Get all schedules by semester ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: semesterId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the semester
+      responses:
+        '200':
+          description: List of schedules for the semester
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/schedules/events:
+    get:
+      tags:
+        - Events
+      summary: Fetch events filtered by start and end dates (inclusive)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: The start date in 'YYYY-MM-DD' format
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: The end date in 'YYYY-MM-DD' format
+      responses:
+        '200':
+          description: List of events within the date range
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/schedules/generate:
+    post:
+      tags:
+        - Schedules
+      summary: Generate a weekly schedule based on the current groups, subjects, and teachers
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScheduleRequest'
+            example:
+              semesterId: "1"
+              config:
+                populationSize: 100
+                crossoverRate: 0.8
+                mutationRate: 0.01
+                generations: 50
+      responses:
+        '201':
+          description: Schedule generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
   /v1/events:
     post:
       tags:
@@ -598,50 +740,16 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - title
-                - dayOfWeek
-                - startTime
-                - endTime
-                - scheduleId
-                - groupId
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                dayOfWeek:
-                  type: string
-                  enum:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                    - Sunday
-                startTime:
-                  type: string
-                  pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
-                  description: Start time in HH:mm format
-                endTime:
-                  type: string
-                  pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
-                  description: End time in HH:mm format
-                scheduleId:
-                  type: string
-                groupId:
-                  type: string
-                  description: ID of the group associated with this event
-              example:
-                title: "Chemistry Lecture"
-                description: "Organic Chemistry Basics"
-                dayOfWeek: "Tuesday"
-                startTime: "11:00"
-                endTime: "12:30"
-                scheduleId: "sched_123"
-                groupId: "group_789"
+              $ref: '#/components/schemas/Event'
+            example:
+              title: "Chemistry Lecture"
+              description: "Organic Chemistry Basics"
+              date: "2024-09-02"
+              dayOfWeek: "Tuesday"
+              startTime: "11:00"
+              endTime: "12:30"
+              scheduleId: "sched_123"
+              groupId: "group_789"
       responses:
         '201':
           description: Event created
@@ -697,45 +805,16 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - groupId
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                dayOfWeek:
-                  type: string
-                  enum:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                    - Sunday
-                startTime:
-                  type: string
-                  pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
-                  description: Start time in HH:mm format
-                endTime:
-                  type: string
-                  pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
-                  description: End time in HH:mm format
-                scheduleId:
-                  type: string
-                groupId:
-                  type: string
-                  description: ID of the group associated with this event
-              example:
-                title: "Advanced Chemistry Lecture"
-                description: "In-depth Organic Chemistry"
-                dayOfWeek: "Wednesday"
-                startTime: "14:00"
-                endTime: "15:30"
-                scheduleId: "sched_123"
-                groupId: "group_789"
+              $ref: '#/components/schemas/Event'
+            example:
+              title: "Advanced Chemistry Lecture"
+              description: "In-depth Organic Chemistry"
+              date: "2024-09-03"
+              dayOfWeek: "Wednesday"
+              startTime: "14:00"
+              endTime: "15:30"
+              scheduleId: "sched_123"
+              groupId: "group_789"
       responses:
         '200':
           description: Event updated
@@ -770,34 +849,6 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/schedules/generate:
-    post:
-      tags:
-        - Schedules
-      summary: Generate a weekly schedule based on the current groups, subjects, and teachers
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateScheduleRequest'
-            example:
-              semester: "Spring 2025"
-      responses:
-        '201':
-          description: Schedule generated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Schedule'
-        '400':
-          $ref: '#/components/responses/BadRequestError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-  # Existing Endpoints for Groups
   /v1/groups:
     get:
       tags:
@@ -928,7 +979,6 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  # Existing Endpoints for Subjects
   /v1/subjects:
     get:
       tags:
@@ -1053,7 +1103,6 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  # Existing Endpoints for Teachers
   /v1/teachers:
     get:
       tags:
@@ -1241,8 +1290,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
           description: ID of the semester to retrieve
       responses:
         '200':
@@ -1266,8 +1314,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
           description: ID of the semester to update
       requestBody:
         required: true
@@ -1303,8 +1350,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
           description: ID of the semester to delete
       responses:
         '204':
@@ -1314,7 +1360,6 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  # Existing Endpoints for Classrooms
   /v1/classrooms:
     get:
       tags:
