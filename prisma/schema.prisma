@@ -88,7 +88,6 @@ model Semester {
 model StudentGroup {
   id             BigInt              @id @default(autoincrement())
   name           String              @db.VarChar(100)
-  study_year     Int
   students_count Int
   course_number  Int
   created_at     DateTime?           @default(now())
