@@ -81,7 +81,7 @@ export class SemestersController {
     description: 'Semester not found',
   })
   async findOne(@Param('semesterId', ParseIntPipe) semesterId: string) {
-    return this.semestersService.findOne(BigInt(semesterId));
+    return this.semestersService.findOne(+semesterId);
   }
 
   /**
@@ -110,10 +110,12 @@ export class SemestersController {
     description: 'Semester not found',
   })
   async update(
-    @Param('semesterId', ParseIntPipe) semesterId: string,
+    @Param('semesterId') semesterId: string,
     @Body() updateSemesterDto: UpdateSemesterDto,
   ) {
-    return this.semestersService.update(BigInt(semesterId), updateSemesterDto);
+    console.log(semesterId)
+    console.log(updateSemesterDto)
+    return this.semestersService.update(+semesterId, updateSemesterDto);
   }
 
   /**
@@ -135,7 +137,7 @@ export class SemestersController {
     description: 'Semester not found',
   })
   async remove(@Param('semesterId', ParseIntPipe) semesterId: string) {
-    await this.semestersService.remove(BigInt(semesterId));
+    await this.semestersService.remove(+semesterId);
     return {
       message: 'Semester deleted successfully',
     };

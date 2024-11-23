@@ -42,7 +42,7 @@ export class SemestersService {
    * @param id - ID of the semester
    * @returns The semester with the given ID
    */
-  async findOne(id: bigint) {
+  async findOne(id: number) {
     const semester = await this.prisma.semester.findUnique({
       where: { id },
       include: {
@@ -61,7 +61,7 @@ export class SemestersService {
    * @param updateSemesterDto - Data to update the semester
    * @returns The updated semester
    */
-  async update(id: bigint, updateSemesterDto: UpdateSemesterDto) {
+  async update(id: number, updateSemesterDto: UpdateSemesterDto) {
     await this.findOne(id); // Ensure the semester exists
 
     const updatedSemester = await this.prisma.semester.update({
@@ -85,7 +85,7 @@ export class SemestersService {
    * @param id - ID of the semester to delete
    * @returns The deleted semester
    */
-  async remove(id: bigint) {
+  async remove(id: number) {
     await this.findOne(id); // Ensure the semester exists
 
     const deletedSemester = await this.prisma.semester.delete({
