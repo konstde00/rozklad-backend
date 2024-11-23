@@ -25,6 +25,9 @@ export class CreateGroupDto {
   @IsInt()
   course_number: number;
 
+  @IsInt()
+  speciality: number;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
