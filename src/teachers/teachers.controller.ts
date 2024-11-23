@@ -17,7 +17,6 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('v1/teachers')
-@UseGuards(JwtAuthGuard)
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
 

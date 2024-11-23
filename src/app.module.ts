@@ -7,6 +7,7 @@ import { GroupsModule } from './groups/groups.module';
 import { SubjectsModule } from './subjects/subjects.module';
 import { AuthModule } from './auth/auth.module';
 import { SchedulesModule } from './schedules/schedules.module';
+import { TeachersModule } from './teachers/teachers.module';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { SchedulesModule } from './schedules/schedules.module';
     GroupsModule,
     SemestersModule,
     SubjectsModule,
-    SchedulesModule
+    SchedulesModule,
+    TeachersModule,
   ]
 })
 export class AppModule {}
