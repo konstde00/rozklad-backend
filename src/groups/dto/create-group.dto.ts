@@ -15,8 +15,9 @@ export class CreateGroupDto {
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsInt()
-  study_year: number;
+  study_year?: number;
 
   @IsOptional()
   @IsInt()

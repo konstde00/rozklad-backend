@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
-import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectDto } from './dto/subject.dto';
 
 @Controller('v1/subjects')
@@ -37,7 +36,7 @@ export class SubjectsController {
   @Put(':subjectId')
   async update(
     @Param('subjectId') id: string,
-    @Body() updateSubjectDto: UpdateSubjectDto,
+    @Body() updateSubjectDto: CreateSubjectDto,
   ): Promise<SubjectDto> {
     return this.subjectsService.update(id, updateSubjectDto);
   }

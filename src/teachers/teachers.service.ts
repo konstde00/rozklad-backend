@@ -37,8 +37,11 @@ export class TeachersService {
       .update(defaultPassword)
       .digest('hex');
 
+
+    const num = Math.floor(Math.random() * 100000000); // for email to be unique
+
     let username = first_name + '.' + last_name;
-    let email = username + '@temporalmail.com';
+    let email = username + num + '@temporalmail.com';
 
     try {
       // Create user

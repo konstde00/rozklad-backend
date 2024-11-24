@@ -56,7 +56,7 @@ export class SubjectsService {
    * @returns The updated SubjectDto.
    * @throws NotFoundException if the subject does not exist.
    */
-  async update(id: string, updateSubjectDto: UpdateSubjectDto): Promise<SubjectDto> {
+  async update(id: string, updateSubjectDto: CreateSubjectDto): Promise<SubjectDto> {
     const subjectExists = await this.prisma.subject.findUnique({
       where: { id: BigInt(id) },
     });

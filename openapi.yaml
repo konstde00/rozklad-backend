@@ -171,16 +171,12 @@ components:
       type: object
       required:
         - name
-        - hoursPerWeek
       properties:
         id:
           type: string
           description: Unique identifier for the subject
         name:
           type: string
-        hoursPerWeek:
-          type: integer
-          description: Number of hours per week the subject is taught
       example:
         id: "subject_101"
         name: "Calculus I"
@@ -190,7 +186,8 @@ components:
       type: object
       required:
         - name
-        - subjects
+        - students_count
+        - course_number
       properties:
         id:
           type: string
@@ -201,17 +198,14 @@ components:
         students_count:
           type: integer
           description: Number of students in the group
-        subjects:
-          type: array
-          items:
-            $ref: '#/components/schemas/Subject'
+        course_number:
+          type: integer
+          description: Course number of the group
       example:
         id: "group_789"
         name: "Group A"
-        subjects:
-          - id: "subject_101"
-            name: "Calculus I"
-            hoursPerWeek: 4
+        students_count: 30
+        course_number: 2
 
     Teacher:
       type: object
