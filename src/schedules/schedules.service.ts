@@ -124,7 +124,7 @@ export class SchedulesService {
    */
   private async createEventsForSchedule(scheduleId: bigint, events: any[]) {
     if (events.length === 0) {
-      console.warn(`No events to create for schedule ID ${scheduleId}`);
+      //console.warn(`No events to create for schedule ID ${scheduleId}`);
       return;
     }
 

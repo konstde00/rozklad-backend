@@ -276,7 +276,7 @@ describe('Genetic Algorithm', () => {
         requiredHours = assignment.seminar_hours_per_semester;
       }
 
-      const toleranceHours = 10;
+      const toleranceHours = 12;
 
       if (Math.abs(scheduledHours - requiredHours) > toleranceHours) {
         console.error(

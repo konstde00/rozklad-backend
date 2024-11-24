@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -12,7 +11,13 @@ import {
 import { SemestersService } from './semesters.service';
 import { CreateSemesterDto } from './dto/create-semester.dto';
 import { UpdateSemesterDto } from './dto/update-semester.dto';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 @ApiTags('Semesters')
 @ApiBearerAuth()
@@ -113,8 +118,8 @@ export class SemestersController {
     @Param('semesterId') semesterId: string,
     @Body() updateSemesterDto: UpdateSemesterDto,
   ) {
-    console.log(semesterId)
-    console.log(updateSemesterDto)
+    console.log(semesterId);
+    console.log(updateSemesterDto);
     return this.semestersService.update(+semesterId, updateSemesterDto);
   }
 
