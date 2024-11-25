@@ -38,10 +38,6 @@ export class SchedulesService {
       },
     });
 
-    if (schedules.length === 0) {
-      throw new NotFoundException('No schedules found for this semester');
-    }
-
     return schedules.map((schedule) => this.toScheduleDto(schedule));
   }
 
@@ -259,8 +255,7 @@ export class SchedulesService {
    * @returns A string representing the time in HH:MM format adjusted by +3 hours.
    */
   private formatTimeWithTimezone(date: Date): string {
-    // Create a new Date instance to avoid mutating the original date
-    const adjustedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // Add 3 hours
+    const adjustedDate = new Date(date.getTime());
 
     const hours = adjustedDate.getHours().toString().padStart(2, '0');
     const minutes = adjustedDate.getMinutes().toString().padStart(2, '0');
@@ -273,7 +268,7 @@ export class SchedulesService {
    * @returns A string representing the date in YYYY-MM-DD format adjusted by +3 hours.
    */
   private formatDateWithTimezone(date: Date): string {
-    const adjustedDate = new Date(date.getTime() + 3 * 60 * 60 * 1000); // Add 3 hours
+    const adjustedDate = new Date(date.getTime());
 
     const year = adjustedDate.getFullYear();
     const month = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');

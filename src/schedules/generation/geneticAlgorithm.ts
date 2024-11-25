@@ -415,7 +415,7 @@ function repairSchedule(
       repairedEvents.push(rescheduledEvent);
     } else {
       console.log(
-        `Unable to reschedule event: ${JSON.stringify(conflictEvent)}`,
+        `Unable to reschedule event: ${JSON.stringify(conflictEvent.title)}`,
       );
     }
   }
