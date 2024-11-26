@@ -8,5 +8,6 @@ import { TeachingAssignmentsService } from './teaching-assignments.service';
 @Module({
   providers: [TeachingAssignmentsService, PrismaService],
   imports: [JwtModule.register({})],
+  exports: [TeachingAssignmentsService],
 })
 export class TeachingAssignmentsModule {}
