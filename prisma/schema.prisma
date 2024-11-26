@@ -89,10 +89,13 @@ model StudentGroup {
   id             BigInt              @id @default(autoincrement())
   name           String              @db.VarChar(100)
   students_count Int
+  speciality     Int
   course_number  Int
   created_at     DateTime?           @default(now())
   updated_at     DateTime?           @default(now())
 
+  /// The teaching assignments for this group.
+  teachingAssignments TeachingAssignment[]
   /// The events that this group participates in.
   events              Event[]
 
@@ -145,22 +148,13 @@ model User {
   teacher         Teacher?
 }
 
-/// Represents a field of study or specialization.
-/// Associated with multiple courses.
-model Speciality {
-  id          BigInt    @id @default(autoincrement())
-  name        String    @db.VarChar(100)
-  code        Int       @db.Int
-  created_at  DateTime? @default(now())
-  updated_at  DateTime? @default(now())
-}
-
 /// Represents the assignment of a teacher to teach a specific subject to a group,
 /// within a specific course, specifying the lesson types and hours per semester.
 model TeachingAssignment {
   id                          BigInt      @id @default(autoincrement())
   teacher_id                  BigInt
-  specialy_id                 Int
+  speciality                  Int
+  group_id                    BigInt?
   course_number               Int
   subject_id                  BigInt
   lecture_hours_per_semester  Int
@@ -172,10 +166,14 @@ model TeachingAssignment {
 
   /// The teacher assigned to teach.
   teacher       Teacher       @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// The student group assigned to be taught.
+  studentGroup  StudentGroup? @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// The subject to be taught.
   subject       Subject       @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@unique([teacher_id, group_id, course_number, subject_id])
   @@index([teacher_id])
+  @@index([group_id])
   @@index([course_number])
   @@index([subject_id])
 }
