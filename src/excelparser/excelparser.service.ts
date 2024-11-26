@@ -7,6 +7,7 @@ import { TeachersService } from '../teachers/teachers.service'; // Імпорт�
 export class ExcelparserService {
   constructor(private readonly teachersService: TeachersService) {} // Інжектуємо TeachersService
 
+
   async parseExcelFile(file: Express.Multer.File): Promise<any> {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(file.buffer);

@@ -34,5 +34,3 @@ async function bootstrap() {
   // Запуск додатку
   await app.listen(3001);
 }
-
-bootstrap();

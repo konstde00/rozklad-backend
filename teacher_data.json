@@ -53,7 +53,10 @@
     "teacher-name": "Нікітченко Микола Степанович",
     "subject": "ОК.05 Теорія і технологія розробки програмних систем (англійською мовою)",
     "course": "1",
+<<<<<<< HEAD
     "group": "0",
+=======
+>>>>>>> b472bf3e6b46a6b00469b0a4627a3b0527024b83
     "lec": 10,
     "lab": 0,
     "sem": 0,
@@ -63,7 +66,10 @@
     "teacher-name": "Нікітченко Микола Степанович",
     "subject": "ОК.05 Mathematical Foundations and Technology of Software Systems and Algorithms",
     "course": "1",
+<<<<<<< HEAD
     "group": "0",
+=======
+>>>>>>> b472bf3e6b46a6b00469b0a4627a3b0527024b83
     "lec": 16,
     "lab": 0,
     "sem": 0,
