@@ -30,6 +30,12 @@ export class TeachersController {
     return this.teachersService.create(createTeacherDto);
   }
 
+  @Post('import')
+async importTeachers(@Body() data: any[]) {
+  return this.teachersService.importFromJson(data);
+}
+
+
   @Get(':teacherId')
   async findOne(@Param('teacherId') teacherId: string) {
     return this.teachersService.findOne(+teacherId);

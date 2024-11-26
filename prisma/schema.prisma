@@ -93,8 +93,6 @@ model StudentGroup {
   created_at     DateTime?           @default(now())
   updated_at     DateTime?           @default(now())
 
-  /// The teaching assignments for this group.
-  teachingAssignments TeachingAssignment[]
   /// The events that this group participates in.
   events              Event[]
 
@@ -162,7 +160,7 @@ model Speciality {
 model TeachingAssignment {
   id                          BigInt      @id @default(autoincrement())
   teacher_id                  BigInt
-  group_id                    BigInt
+  specialy_id                 Int
   course_number               Int
   subject_id                  BigInt
   lecture_hours_per_semester  Int
@@ -174,14 +172,10 @@ model TeachingAssignment {
 
   /// The teacher assigned to teach.
   teacher       Teacher       @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  /// The student group assigned to be taught.
-  studentGroup  StudentGroup  @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// The subject to be taught.
   subject       Subject       @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([teacher_id, group_id, course_number, subject_id])
   @@index([teacher_id])
-  @@index([group_id])
   @@index([course_number])
   @@index([subject_id])
 }
