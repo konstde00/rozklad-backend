@@ -33,7 +33,7 @@ export class ExcelparserService {
         facultyName?: string;
       }[] = [];
 
-      let rowIndex = 19;
+      let rowIndex = 18;
       let specialityCode = '';
 
       while (true) {
@@ -58,9 +58,9 @@ export class ExcelparserService {
           const specialityMatch = subject.match(/спеціальність\s*(\d+)/i);
           if (specialityMatch) {
             specialityCode = specialityMatch[1];
+            console.log(`extracted specialityCode: ${specialityCode} from input ${subject}`);
           } else {
-            // Reset specialityCode if not found
-            specialityCode = '';
+            console.log('specialityMatch not found in: ', subject);
           }
           rowIndex++;
           continue;

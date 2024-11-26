@@ -105,7 +105,7 @@ model StudentGroup {
 /// Represents an academic subject or course.
 model Subject {
   id           BigInt             @id @default(autoincrement())
-  name         String             @db.VarChar(100)
+  name         String             @db.VarChar(500)
   created_at   DateTime?          @default(now())
   updated_at   DateTime?          @default(now())
 
