@@ -89,6 +89,7 @@ model StudentGroup {
   id             BigInt              @id @default(autoincrement())
   name           String              @db.VarChar(100)
   students_count Int
+  speciality     Int
   course_number  Int
   created_at     DateTime?           @default(now())
   updated_at     DateTime?           @default(now())
@@ -147,22 +148,13 @@ model User {
   teacher         Teacher?
 }
 
-/// Represents a field of study or specialization.
-/// Associated with multiple courses.
-model Speciality {
-  id          BigInt    @id @default(autoincrement())
-  name        String    @db.VarChar(100)
-  code        Int       @db.Int
-  created_at  DateTime? @default(now())
-  updated_at  DateTime? @default(now())
-}
-
 /// Represents the assignment of a teacher to teach a specific subject to a group,
 /// within a specific course, specifying the lesson types and hours per semester.
 model TeachingAssignment {
   id                          BigInt      @id @default(autoincrement())
   teacher_id                  BigInt
-  group_id                    BigInt
+  speciality                  Int
+  group_id                    BigInt?
   course_number               Int
   subject_id                  BigInt
   lecture_hours_per_semester  Int
@@ -175,7 +167,7 @@ model TeachingAssignment {
   /// The teacher assigned to teach.
   teacher       Teacher       @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// The student group assigned to be taught.
-  studentGroup  StudentGroup  @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  studentGroup  StudentGroup? @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// The subject to be taught.
   subject       Subject       @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

@@ -198,6 +198,9 @@ components:
         name:
           type: string
           description: Name or identifier of the group
+        speciality:
+          type: integer
+          description: Specialization or major of the group
         students_count:
           type: integer
           description: Number of students in the group

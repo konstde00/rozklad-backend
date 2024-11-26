@@ -43,6 +43,7 @@ export class GroupsService {
   async create(createGroupDto: CreateGroupDto): Promise<GroupDto> {
     const data: Prisma.StudentGroupCreateInput = {
       name: createGroupDto.name,
+      speciality: createGroupDto.speciality,
       students_count: createGroupDto.students_count,
       course_number: createGroupDto.course_number,
     };
