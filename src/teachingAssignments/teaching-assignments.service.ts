@@ -149,4 +149,29 @@ export class TeachingAssignmentsService {
       seminarHoursPerSemester: teachingAssignment.seminar_hours_per_semester,
     };
   }
+
+  async importFromJson(data: any[]) {
+    const results = [];
+
+    for (const entry of data) {
+
+      const { teacherId, subjectId, specialityCode, courseNumber, lec, lab, sem, pract } = entry;
+
+      await this.prisma.teachingAssignment.create({
+        data: {
+          teacher_id: BigInt(teacherId),
+          group_id: null,
+          subject_id: BigInt(subjectId),
+          speciality: +specialityCode,
+          course_number: +courseNumber,
+          lecture_hours_per_semester: +lec,
+          practice_hours_per_semester: +pract,
+          lab_hours_per_semester: +lab,
+          seminar_hours_per_semester: +sem
+        }
+      });
+    }
+
+    return results;
+  }
 }

@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
-import * as fs from 'fs';
-import { TeachersService } from '../teachers/teachers.service'; // Імпортуємо TeachersService
+import { TeachersService } from '../teachers/teachers.service';
+import { SubjectsService } from '../subjects/subjects.service';
+import { TeachingAssignmentsService } from '../teachingAssignments/teaching-assignments.service';
 
 @Injectable()
 export class ExcelparserService {
-  constructor(private readonly teachersService: TeachersService) {} // Інжектуємо TeachersService
-
+  constructor(
+    private readonly teachersService: TeachersService,
+    private readonly subjectsService: SubjectsService,
+    private readonly teachingAssignmentsService: TeachingAssignmentsService,
+  ) {}
 
   async parseExcelFile(file: Express.Multer.File): Promise<any> {
     const workbook = new ExcelJS.Workbook();
@@ -25,12 +29,16 @@ export class ExcelparserService {
         lab: number;
         sem: number;
         prakt: number;
+        specialityCode?: string;
+        facultyName?: string;
       }[] = [];
 
       let rowIndex = 19;
+      let specialityCode = '';
 
       while (true) {
-        const subject = worksheet.getRow(rowIndex).getCell(1).text.trim();
+        const subjectCell = worksheet.getRow(rowIndex).getCell(1);
+        const subject = subjectCell.text.trim();
         let course = worksheet.getRow(rowIndex).getCell(2).text.trim();
         const workType = worksheet.getRow(rowIndex).getCell(7).text.trim();
         const hours = worksheet.getRow(rowIndex).getCell(13).text.trim();
@@ -39,48 +47,67 @@ export class ExcelparserService {
           break;
         }
 
+        // Check for 'факультет', 'навчально-науковий інститут', or 'спеціальність'
         if (
           subject.toLowerCase().includes('факультет') ||
-          subject.toLowerCase().includes('навчально-науковий інститут')
+          subject.toLowerCase().includes('навчально-науковий інститут') ||
+          subject.toLowerCase().includes('спеціальність')
         ) {
+
+          // Extract speciality code if present
+          const specialityMatch = subject.match(/спеціальність\s*(\d+)/i);
+          if (specialityMatch) {
+            specialityCode = specialityMatch[1];
+          } else {
+            // Reset specialityCode if not found
+            specialityCode = '';
+          }
           rowIndex++;
           continue;
         }
 
-        if (subject) {
-          const courseMatch = course.match(/^(\d+)/);
-          if (courseMatch) {
-            course = courseMatch[1];
-          }
+        // Skip empty subject rows
+        if (!subject) {
+          rowIndex++;
+          continue;
+        }
 
-          const validWorkTypes = ['лек.', 'лаб.', 'сем.', 'практ.'];
-          const workTypeMap: { [key: string]: string } = {
-            'лек.': 'lek',
-            'лаб.': 'lab',
-            'сем.': 'sem',
-            'практ.': 'prakt',
+        // Process the subject
+        const courseMatch = course.match(/^(\d+)/);
+        if (courseMatch) {
+          course = courseMatch[1];
+        }
+
+        const validWorkTypes = ['лек.', 'лаб.', 'сем.', 'практ.'];
+        const workTypeMap: { [key: string]: string } = {
+          'лек.': 'lek',
+          'лаб.': 'lab',
+          'сем.': 'sem',
+          'практ.': 'prakt',
+        };
+
+        let existingSubject = subjects.find(
+          (s) =>
+            s.subject === subject &&
+            s.course === course &&
+            s.specialityCode === specialityCode,
+        );
+
+        if (!existingSubject) {
+          existingSubject = {
+            subject,
+            course,
+            lek: 0,
+            lab: 0,
+            sem: 0,
+            prakt: 0,
+            specialityCode,
           };
+          subjects.push(existingSubject);
+        }
 
-          let existingSubject = subjects.find(
-            (s) => s.subject === subject && s.course === course,
-          );
-
-          if (!existingSubject) {
-            existingSubject = {
-              subject,
-              course,
-              lek: 0,
-              lab: 0,
-              sem: 0,
-              prakt: 0,
-            };
-            subjects.push(existingSubject);
-          }
-
-          if (validWorkTypes.includes(workType)) {
-            existingSubject[workTypeMap[workType]] +=
-              parseInt(hours, 10) || 0;
-          }
+        if (validWorkTypes.includes(workType)) {
+          existingSubject[workTypeMap[workType]] += parseInt(hours, 10) || 0;
         }
 
         rowIndex++;
@@ -95,27 +122,39 @@ export class ExcelparserService {
 
         if (totalHours > 0) {
           parsedData.push({
-            'teacher-name': fullName,
+            teacherName: fullName,
             subject: subjectData.subject,
-            course: subjectData.course,
-            group: '0',
+            courseNumber: subjectData.course,
             lec: subjectData.lek,
             lab: subjectData.lab,
             sem: subjectData.sem,
             pract: subjectData.prakt,
+            specialityCode: subjectData.specialityCode,
+            facultyName: subjectData.facultyName,
           });
         }
       }
     });
 
-    const outputFilePath = 'teacher_data.json';
-    fs.writeFileSync(outputFilePath, JSON.stringify(parsedData, null, 2), 'utf-8');
-
-    console.log(`Дані збережено у файл ${outputFilePath}`);
-
     // Викликаємо імпорт викладачів
-    const importResults = await this.teachersService.importFromJson(parsedData);
-    console.log('Імпорт завершено:', importResults);
+    const teachersImportResults = await this.teachersService.importFromJson(
+      parsedData,
+    );
+    console.log('Імпорт викладачів завершено:', teachersImportResults);
+
+    // імпорт предметів
+    const subjectsImportResults = await this.subjectsService.importFromJson(
+      parsedData,
+    );
+    console.log('Імпорт предметів завершено:', subjectsImportResults);
+
+    // імпорт teaching assignments
+    const teachingAssignmentsImportResults =
+      await this.teachingAssignmentsService.importFromJson(parsedData);
+    console.log(
+      'Імпорт teaching assignments завершено:',
+      teachingAssignmentsImportResults,
+    );
 
     return parsedData;
   }

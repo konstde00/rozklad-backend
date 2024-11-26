@@ -4,7 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectDto } from './dto/subject.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
+import crypto from 'crypto';
 
 @Injectable()
 export class SubjectsService {
@@ -103,5 +104,36 @@ export class SubjectsService {
       id: subject.id.toString(),
       name: subject.name,
     };
+  }
+
+  async importFromJson(data: any[]) {
+    const results = [];
+
+    for (const entry of data) {
+      const { subject: subject, ...rest } = entry;
+
+      // Перевіряємо, чи користувач із таким ім'ям вже існує
+      let existingSubject = await this.prisma.subject.findFirst({
+        where: { name: subject },
+      });
+
+      let subjectId;
+      if (!existingSubject) {
+
+        const newSubject = await this.prisma.subject.create({
+          data: {
+            name: subject
+          },
+        });
+
+        subjectId = newSubject.id;
+      } else {
+        subjectId = existingSubject.id;
+      }
+
+      entry.subjectId = subjectId;
+    }
+
+    return results;
   }
 }
