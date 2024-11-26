@@ -1,20 +1,21 @@
-import { Controller, Post, Get, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ExcelparserService } from './excelparser.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Express, Response } from 'express';
-import * as path from 'path';
 import * as fs from 'fs';
 
 @ApiTags('Excel Parser')
 @Controller('excelparser')
 export class ExcelparserController {
   constructor(private readonly excelparserService: ExcelparserService) {}
-
-  @Get('upload')
-  getUploadPage(@Res() res: Response) {
-    return res.sendFile(path.join(__dirname, '..', '..', 'public', 'upload.html'));
-  }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -33,10 +34,8 @@ export class ExcelparserController {
     },
   })
   async uploadExcel(@UploadedFile() file: Express.Multer.File) {
-    const parsedData = await this.excelparserService.parseExcelFile(file);
-    
-    // After parsing, send back the file content as a response
-    return parsedData;
+
+    return await this.excelparserService.parseExcelFile(file);
   }
 
   @Get('teacher-data')

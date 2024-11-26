@@ -4,8 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectDto } from './dto/subject.dto';
-import { Prisma, UserRole } from '@prisma/client';
-import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class SubjectsService {
