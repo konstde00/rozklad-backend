@@ -8,9 +8,13 @@ import { SubjectsModule } from './subjects/subjects.module';
 import { AuthModule } from './auth/auth.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { TeachersModule } from './teachers/teachers.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     AuthModule,
     PrismaModule,
     ClassroomsModule,
@@ -19,6 +23,6 @@ import { TeachersModule } from './teachers/teachers.module';
     SubjectsModule,
     SchedulesModule,
     TeachersModule,
-  ]
+  ],
 })
 export class AppModule {}
