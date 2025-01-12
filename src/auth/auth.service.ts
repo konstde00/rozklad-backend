@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from './email.service';
+import { GoogleSignInDto } from './dto/google-signin.dto';
 
 @Injectable()
 export class AuthService {
@@ -70,9 +71,45 @@ export class AuthService {
     }
   }
 
+  async googleSignIn(data: GoogleSignInDto): Promise<any> {
+    const user = await this.prisma.user.findFirst({
+      where: { google_uid: data.uid },
+    });
+
+    if (user) {
+      const token = this.jwtService.sign({ email: user.email, sub: user.id });
+      const { password_hash, ...result } = user;
+      console.log('Google user found', result);
+      return { user: result, token };
+    } else {
+      const passwordHash = this.hashPassword(
+        crypto.randomBytes(20).toString('hex'),
+      );
+      const confirmationCode = crypto.randomBytes(5).toString('hex');
+      const createdUser = await this.prisma.user.create({
+        data: {
+          username: data.username || 'default_username',
+          email: data.email,
+          password_hash: passwordHash,
+          is_active: true,
+          code: confirmationCode,
+          role: 'student',
+          google_uid: data.uid,
+        },
+      });
+      const token = this.jwtService.sign({
+        email: createdUser.email,
+        sub: createdUser.id,
+      });
+      const { password_hash, ...result } = createdUser;
+      console.log('Google user created', result);
+      return { user: result, token };
+    }
+  }
+
   async confirmSignup(email: string, code: string): Promise<any> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    console.log(user.code)
+    console.log(user.code);
     if (!user || user.code !== code) {
       throw new NotFoundException('Invalid confirmation code');
     }

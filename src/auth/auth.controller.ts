@@ -1,7 +1,15 @@
-import { Controller, Post, Body, Put, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Put,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleSignInDto } from './dto/google-signin.dto';
 
 @Controller('/v1/auth')
 export class AuthController {
@@ -17,14 +25,25 @@ export class AuthController {
     return this.authService.login(loginUserDto.email, loginUserDto.password);
   }
 
+  @Post('google-signin')
+  async googleSignIn(@Body() createUserDto: GoogleSignInDto) {
+    return await this.authService.googleSignIn(createUserDto);
+  }
+
   @Post('confirm')
   async confirmSignup(@Body() body: { email: string; code: string }) {
     return await this.authService.confirmSignup(body.email, body.code);
   }
 
   @Put('change-password')
-  async changePassword(@Body() body: { id: number; old_password: string; password: string }) {
-    return await this.authService.changePassword(body.id, body.old_password, body.password);
+  async changePassword(
+    @Body() body: { id: number; old_password: string; password: string },
+  ) {
+    return await this.authService.changePassword(
+      body.id,
+      body.old_password,
+      body.password,
+    );
   }
 
   @Post('logout')

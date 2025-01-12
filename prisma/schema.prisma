@@ -139,6 +139,7 @@ model User {
   password_hash   String      @db.VarChar(255)
   role            UserRole
 
+  google_uid      String?     @unique @db.VarChar(255)
   code            String
   is_active       Boolean     @default(false)
 
