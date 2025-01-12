@@ -1,6 +1,6 @@
 // schedules.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScheduleDto } from './dto/schedule.dto';
 import { GenerateScheduleDto } from './dto/generate-schedule.dto';
@@ -12,10 +12,14 @@ import { WeeklySchedule } from './generation/types';
 import { DataService } from './interfaces';
 import { EventDto } from './dto/event.dto';
 import { Prisma } from '@prisma/client';
+import { GroupsService } from '../groups/groups.service';
+import { TeachingAssignmentsService } from '../teachingAssignments/teaching-assignments.service';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+              private readonly groupsService: GroupsService,
+              private readonly teachingAssignmentsService: TeachingAssignmentsService) {}
 
   /**
    * Fetches all schedules for a given semester ID.
@@ -49,6 +53,9 @@ export class SchedulesService {
   async generateSchedule(
     generateScheduleDto: GenerateScheduleDto,
   ): Promise<ScheduleDto> {
+
+    await this.assignGroupsToTeachingAssignments();
+
     const semesterId = BigInt(generateScheduleDto.semesterId);
 
     const semester = await this.prisma.semester.findUnique({
@@ -274,5 +281,82 @@ export class SchedulesService {
     const month = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');
     const day = adjustedDate.getDate().toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Assigns groups to teaching assignments based on course number and speciality.
+   * Ensures that each group has only one teaching assignment per subject.
+   * Throws an exception if a suitable group cannot be found.
+   */
+  async assignGroupsToTeachingAssignments(): Promise<void> {
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        // Fetch all teaching assignments with their associated groups and subjects
+        const teachingAssignments = await prisma.teachingAssignment.findMany({
+          include: {
+            studentGroup: true,
+            subject: true,
+          },
+        });
+
+        for (const ta of teachingAssignments) {
+          const currentGroup = ta.studentGroup;
+
+          // Verify that the current group's speciality and course_number match the teaching assignment
+          if (
+            currentGroup === null ||
+            currentGroup.speciality !== ta.speciality ||
+            currentGroup.course_number !== ta.course_number
+          ) {
+            // Find a group that matches the teaching assignment's speciality and course_number
+            const matchingGroup = await prisma.studentGroup.findFirst({
+              where: {
+                speciality: ta.speciality,
+                course_number: ta.course_number,
+              },
+            });
+
+            if (!matchingGroup) {
+              throw new NotFoundException(
+                `To generate schedule need to add group with speciality ${ta.speciality} for ${ta.course_number} education course`,
+              );
+            }
+
+            // Check if the matching group already has a teaching assignment for this subject
+            const existingTA = await prisma.teachingAssignment.findFirst({
+              where: {
+                group_id: matchingGroup.id,
+                subject_id: ta.subject_id,
+              },
+            });
+
+            if (existingTA) {
+              throw new BadRequestException(
+                `Group "${matchingGroup.name}" already has a teaching assignment for subject "${ta.subject.name}".`,
+              );
+            }
+
+            // Assign the matching group to the teaching assignment
+            await prisma.teachingAssignment.update({
+              where: { id: ta.id },
+              data: { group_id: matchingGroup.id },
+            });
+
+            console.log(
+              `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
+            );
+          }
+        }
+      });
+
+      console.log('All teaching assignments have been successfully assigned to appropriate groups.');
+    } catch (error) {
+      // Handle specific Prisma errors or rethrow
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Error assigning groups to teaching assignments:', error);
+      throw new Error('Failed to assign groups to teaching assignments.');
+    }
   }
 }

@@ -24,11 +24,7 @@ export class TeachersService {
   }
 
   async create(createTeacherDto: CreateTeacherDto) {
-    const {
-      first_name,
-      last_name,
-      max_hours_per_week,
-    } = createTeacherDto;
+    const { first_name, last_name, max_hours_per_week } = createTeacherDto;
 
     const defaultPassword = 'temporal_default_password';
     const password_hash = crypto
@@ -103,5 +99,76 @@ export class TeachersService {
     }
 
     await this.prisma.teacher.delete({ where: { id } });
+  }
+
+  async importFromJson(data: any[]) {
+    const results = [];
+
+    for (const entry of data) {
+      const { teacherName: fullName, lec, lab, sem, pract } = entry;
+
+      // Розділяємо ім'я на частини
+      const [lastName, firstName, ...rest] = fullName.split(' ');
+
+      // Встановлюємо max_hours_per_week рівним 0 для всіх викладачів
+      const max_hours_per_week = 40;
+
+      // Перевіряємо, чи користувач із таким ім'ям вже існує
+      let existingUser = await this.prisma.user.findFirst({
+        where: { username: `${firstName}.${lastName}` },
+      });
+
+      let userId;
+
+      if (!existingUser) {
+        // Якщо користувач не існує, створюємо його
+        const password_hash = crypto
+          .createHash('sha256')
+          .update('temporal_default_password')
+          .digest('hex');
+
+        const newUser = await this.prisma.user.create({
+          data: {
+            username: `${firstName}.${lastName}`,
+            email: `${firstName}.${lastName}@temporalmail.com`,
+            password_hash,
+            role: UserRole.teacher,
+          },
+        });
+
+        userId = newUser.id;
+      } else {
+        userId = existingUser.id;
+      }
+
+      // Перевіряємо, чи викладач із таким ID вже існує
+      let existingTeacher = await this.prisma.teacher.findUnique({
+        where: { id: userId },
+      });
+
+      let teacherId;
+      if (!existingTeacher) {
+        // Якщо викладач не існує, створюємо його
+        const newTeacher = await this.prisma.teacher.create({
+          data: {
+            id: userId,
+            first_name: firstName,
+            last_name: lastName,
+            max_hours_per_week, // поки що тут буде завжди 40
+          },
+        });
+
+        teacherId = newTeacher.id;
+        results.push({ status: 'created', teacher: newTeacher });
+      } else {
+
+        teacherId = existingTeacher.id;
+        results.push({ status: 'exists', teacher: existingTeacher });
+      }
+
+      entry.teacherId = teacherId;
+    }
+
+    return results;
   }
 }

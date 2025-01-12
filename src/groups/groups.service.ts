@@ -10,7 +10,7 @@ import { GroupDto } from './dto/group.dto';
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(): Promise<GroupDto[]> {
+  /*async findAll(): Promise<GroupDto[]> {
     const groups = await this.prisma.studentGroup.findMany({
       include: {
         teachingAssignments: {
@@ -43,6 +43,7 @@ export class GroupsService {
   async create(createGroupDto: CreateGroupDto): Promise<GroupDto> {
     const data: Prisma.StudentGroupCreateInput = {
       name: createGroupDto.name,
+      speciality: createGroupDto.speciality,
       students_count: createGroupDto.students_count,
       course_number: createGroupDto.course_number,
     };
@@ -85,7 +86,7 @@ export class GroupsService {
       },
     });
     return this.toGroupDto(group);
-  }
+  }*/
 
   async remove(id: string): Promise<void> {
     const groupExists = await this.prisma.studentGroup.findUnique({

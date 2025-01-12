@@ -220,9 +220,6 @@ function addLesson(
   }
 }
 
-// Other functions remain the same
-
-
 function selection(population: WeeklySchedule[]): WeeklySchedule[] {
   const selected: WeeklySchedule[] = [];
   for (let i = 0; i < population.length; i++) {

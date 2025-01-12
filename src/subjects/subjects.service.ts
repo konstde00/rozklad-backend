@@ -104,4 +104,35 @@ export class SubjectsService {
       name: subject.name,
     };
   }
+
+  async importFromJson(data: any[]) {
+    const results = [];
+
+    for (const entry of data) {
+      const { subject: subject, ...rest } = entry;
+
+      // Перевіряємо, чи користувач із таким ім'ям вже існує
+      let existingSubject = await this.prisma.subject.findFirst({
+        where: { name: subject },
+      });
+
+      let subjectId;
+      if (!existingSubject) {
+
+        const newSubject = await this.prisma.subject.create({
+          data: {
+            name: subject
+          },
+        });
+
+        subjectId = newSubject.id;
+      } else {
+        subjectId = existingSubject.id;
+      }
+
+      entry.subjectId = subjectId;
+    }
+
+    return results;
+  }
 }
