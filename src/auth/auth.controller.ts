@@ -1,26 +1,53 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Put,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleSignInDto } from './dto/google-signin.dto';
 
 @Controller('/v1/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('register')
-  async register(@Body() createUserDto: CreateUserDto) {
-    return await this.authService.createUser(createUserDto);
+  @Post('signup')
+  async signup(@Body() createUserDto: CreateUserDto) {
+    return await this.authService.signup(createUserDto);
   }
 
   @Post('login')
   async login(@Body() loginUserDto: LoginUserDto) {
-    const user = await this.authService.validateUser(
-      loginUserDto.email,
-      loginUserDto.password,
+    return this.authService.login(loginUserDto.email, loginUserDto.password);
+  }
+
+  @Post('google-signin')
+  async googleSignIn(@Body() createUserDto: GoogleSignInDto) {
+    return await this.authService.googleSignIn(createUserDto);
+  }
+
+  @Post('confirm')
+  async confirmSignup(@Body() body: { email: string; code: string }) {
+    return await this.authService.confirmSignup(body.email, body.code);
+  }
+
+  @Put('change-password')
+  async changePassword(
+    @Body() body: { id: number; old_password: string; password: string },
+  ) {
+    return await this.authService.changePassword(
+      body.id,
+      body.old_password,
+      body.password,
     );
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    return this.authService.login(user);
+  }
+
+  @Post('logout')
+  async logout() {
+    return await this.authService.logout();
   }
 }

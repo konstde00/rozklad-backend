@@ -17,7 +17,6 @@ export class TeachersService {
   async findAll() {
     return this.prisma.teacher.findMany({
       include: {
-        user: true,
         teachingAssignments: true,
         events: true,
       },
@@ -38,25 +37,22 @@ export class TeachersService {
 
     try {
       // Create user
-      const createdUser = await this.prisma.user.create({
-        data: {
-          username,
-          email,
-          password_hash,
-          role: UserRole.teacher,
-        },
-      });
+      // const createdUser = await this.prisma.user.create({
+      //   data: {
+      //     username,
+      //     email,
+      //     password_hash,
+      //     role: UserRole.teacher,
+      //   },
+      // });
 
       // Create teacher linked to the user
       return this.prisma.teacher.create({
         data: {
-          id: createdUser.id,
+          // id: createdUser.id,
           first_name,
           last_name,
           max_hours_per_week,
-        },
-        include: {
-          user: true,
         },
       });
     } catch (error) {
@@ -74,7 +70,6 @@ export class TeachersService {
     const teacher = await this.prisma.teacher.findUnique({
       where: { id },
       include: {
-        user: true,
         teachingAssignments: true,
         events: true,
       },
@@ -94,9 +89,6 @@ export class TeachersService {
     return this.prisma.teacher.update({
       where: { id },
       data: updateTeacherDto,
-      include: {
-        user: true,
-      },
     });
   }
 
