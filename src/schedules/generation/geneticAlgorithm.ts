@@ -14,7 +14,7 @@ import { WeeklyEvent } from './types';
 export async function runGeneticAlgorithm(
   config: GeneticAlgorithmConfig,
   data: DataService,
-  semesterId: bigint,
+  semesterId: number,
 ) {
   let population: WeeklySchedule[] = [];
 

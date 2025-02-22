@@ -24,7 +24,6 @@ async function bootstrap() {
 		credentials: true,
 	},)
   
-//   app.useGlobalInterceptors(new BigIntInterceptor());
   await app.listen(3001);
 }
 bootstrap();

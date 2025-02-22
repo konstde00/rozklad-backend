@@ -10,7 +10,7 @@ import { GroupDto } from './dto/group.dto';
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /*async findAll(): Promise<GroupDto[]> {
+  async findAll(): Promise<GroupDto[]> {
     const groups = await this.prisma.studentGroup.findMany({
       include: {
         teachingAssignments: {
@@ -25,7 +25,7 @@ export class GroupsService {
 
   async findOne(id: string): Promise<GroupDto> {
     const group = await this.prisma.studentGroup.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
       include: {
         teachingAssignments: {
           include: {
@@ -47,6 +47,7 @@ export class GroupsService {
       students_count: createGroupDto.students_count,
       course_number: createGroupDto.course_number,
     };
+
     const group = await this.prisma.studentGroup.create({
       data,
       include: {
@@ -60,9 +61,10 @@ export class GroupsService {
     return this.toGroupDto(group);
   }
 
+
   async update(id: string, updateGroupDto: UpdateGroupDto): Promise<GroupDto> {
     const groupExists = await this.prisma.studentGroup.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
     if (!groupExists) {
       throw new NotFoundException('Group not found');
@@ -75,7 +77,7 @@ export class GroupsService {
     };
 
     const group = await this.prisma.studentGroup.update({
-      where: { id: BigInt(id) },
+      where: { id: +id },
       data,
       include: {
         teachingAssignments: {
@@ -86,17 +88,17 @@ export class GroupsService {
       },
     });
     return this.toGroupDto(group);
-  }*/
+  }
 
   async remove(id: string): Promise<void> {
     const groupExists = await this.prisma.studentGroup.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
     if (!groupExists) {
       throw new NotFoundException('Group not found');
     }
     await this.prisma.studentGroup.delete({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
   }
 
