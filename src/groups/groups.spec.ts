@@ -37,7 +37,7 @@ describe('GroupsService', () => {
         name: 'Group 1',
         students_count: 20,
         course_number: 1,
-        speciality: 42, // <-- add this
+        speciality: 42,
         created_at: new Date(),
         updated_at: new Date(),
         teachingAssignments: [],
