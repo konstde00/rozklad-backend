@@ -39,10 +39,10 @@ components:
             - admin
           description: Role of the user
       example:
-        username: "john_doe"
-        email: "john.doe@example.com"
-        password: "SecureP@ssw0rd!"
-        role: "student"
+        username: 'john_doe'
+        email: 'john.doe@example.com'
+        password: 'SecureP@ssw0rd!'
+        role: 'student'
 
     UserLogin:
       type: object
@@ -57,8 +57,8 @@ components:
           type: string
           format: password
       example:
-        email: "john.doe@example.com"
-        password: "SecureP@ssw0rd!"
+        email: 'john.doe@example.com'
+        password: 'SecureP@ssw0rd!'
 
     User:
       type: object
@@ -76,10 +76,10 @@ components:
             - teacher
             - admin
       example:
-        id: "1"
-        username: "john_doe"
-        email: "john.doe@example.com"
-        role: "student"
+        id: '1'
+        username: 'john_doe'
+        email: 'john.doe@example.com'
+        role: 'student'
 
     Schedule:
       type: object
@@ -97,20 +97,20 @@ components:
           items:
             $ref: '#/components/schemas/Event'
       example:
-        id: "sched_123"
-        name: "Fall Semester Schedule"
-        semesterId: "1"
-        semesterTitle: "Fall 2024"
+        id: 'sched_123'
+        name: 'Fall Semester Schedule'
+        semesterId: '1'
+        semesterTitle: 'Fall 2024'
         events:
-          - id: "event_456"
-            title: "Physics Lecture"
-            description: "Introduction to Mechanics"
-            date: "2024-09-01"
-            dayOfWeek: "Monday"
-            startTime: "09:00"
-            endTime: "10:30"
-            scheduleId: "sched_123"
-            groupId: "group_789"
+          - id: 'event_456'
+            title: 'Physics Lecture'
+            description: 'Introduction to Mechanics'
+            date: '2024-09-01'
+            dayOfWeek: 'Monday'
+            startTime: '09:00'
+            endTime: '10:30'
+            scheduleId: 'sched_123'
+            groupId: 'group_789'
 
     Event:
       type: object
@@ -157,15 +157,15 @@ components:
           type: string
           description: ID of the group associated with this event
       example:
-        id: "event_456"
-        title: "Physics Lecture"
-        description: "Introduction to Mechanics"
-        date: "2024-09-01"
-        dayOfWeek: "Monday"
-        startTime: "09:00"
-        endTime: "10:30"
-        scheduleId: "sched_123"
-        groupId: "group_789"
+        id: 'event_456'
+        title: 'Physics Lecture'
+        description: 'Introduction to Mechanics'
+        date: '2024-09-01'
+        dayOfWeek: 'Monday'
+        startTime: '09:00'
+        endTime: '10:30'
+        scheduleId: 'sched_123'
+        groupId: 'group_789'
 
     Subject:
       type: object
@@ -182,8 +182,8 @@ components:
           type: integer
           description: Number of hours per week the subject is taught
       example:
-        id: "subject_101"
-        name: "Calculus I"
+        id: 'subject_101'
+        name: 'Calculus I'
         hoursPerWeek: 4
 
     Group:
@@ -209,11 +209,11 @@ components:
           items:
             $ref: '#/components/schemas/Subject'
       example:
-        id: "group_789"
-        name: "Group A"
+        id: 'group_789'
+        name: 'Group A'
         subjects:
-          - id: "subject_101"
-            name: "Calculus I"
+          - id: 'subject_101'
+            name: 'Calculus I'
             hoursPerWeek: 4
 
     Teacher:
@@ -351,7 +351,7 @@ components:
         config:
           $ref: '#/components/schemas/GeneticAlgorithmConfigDto'
       example:
-        semesterId: "1"
+        semesterId: '1'
         config:
           populationSize: 100
           crossoverRate: 0.8
@@ -412,10 +412,10 @@ components:
           description: Timestamp when the classroom was last updated
       example:
         id: 1
-        name: "Physics 101"
+        name: 'Physics 101'
         capacity: 30
-        created_at: "2024-10-26T12:34:56.789Z"
-        updated_at: "2024-10-26T12:34:56.789Z"
+        created_at: '2024-10-26T12:34:56.789Z'
+        updated_at: '2024-10-26T12:34:56.789Z'
 
     Semester:
       type: object
@@ -450,12 +450,12 @@ components:
           format: date-time
           description: Timestamp when the semester was last updated
       example:
-        id: "1"
-        title: "Fall 2024"
-        start_date: "2024-09-01"
-        end_date: "2024-12-31"
-        created_at: "2024-10-26T12:34:56.789Z"
-        updated_at: "2024-10-26T12:34:56.789Z"
+        id: '1'
+        title: 'Fall 2024'
+        start_date: '2024-09-01'
+        end_date: '2024-12-31'
+        created_at: '2024-10-26T12:34:56.789Z'
+        updated_at: '2024-10-26T12:34:56.789Z'
 
     CreateSemesterDto:
       type: object
@@ -476,9 +476,9 @@ components:
           format: date
           description: End date of the semester in ISO format
       example:
-        title: "Spring 2025"
-        start_date: "2025-01-15"
-        end_date: "2025-05-15"
+        title: 'Spring 2025'
+        start_date: '2025-01-15'
+        end_date: '2025-05-15'
 
     UpdateSemesterDto:
       type: object
@@ -495,9 +495,9 @@ components:
           format: date
           description: End date of the semester in ISO format
       example:
-        title: "Advanced Spring 2025"
-        start_date: "2025-01-20"
-        end_date: "2025-05-20"
+        title: 'Advanced Spring 2025'
+        start_date: '2025-01-20'
+        end_date: '2025-05-20'
 
   responses:
     UnauthorizedError:
@@ -510,7 +510,7 @@ components:
               message:
                 type: string
             example:
-              message: "Unauthorized access"
+              message: 'Unauthorized access'
     NotFoundError:
       description: Resource not found
       content:
@@ -521,7 +521,7 @@ components:
               message:
                 type: string
             example:
-              message: "Resource not found"
+              message: 'Resource not found'
     BadRequestError:
       description: Bad request
       content:
@@ -532,7 +532,7 @@ components:
               message:
                 type: string
             example:
-              message: "Invalid input data"
+              message: 'Invalid input data'
 
 security:
   - BearerAuth: []
@@ -581,7 +581,7 @@ paths:
                   token:
                     type: string
                 example:
-                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
         '401':
           description: Invalid credentials
           content:
@@ -592,7 +592,7 @@ paths:
                   message:
                     type: string
                 example:
-                  message: "Invalid email or password"
+                  message: 'Invalid email or password'
 
   /v1/schedules:
     get:
@@ -634,8 +634,8 @@ paths:
                   type: string
                   description: ID of the semester for which the schedule is valid
               example:
-                name: "Fall Semester Schedule"
-                semesterId: "1"
+                name: 'Fall Semester Schedule'
+                semesterId: '1'
       responses:
         '201':
           description: Schedule created
@@ -697,8 +697,8 @@ paths:
                   type: string
                   description: ID of the semester for which the schedule is valid
               example:
-                name: "Updated Fall Semester Schedule"
-                semesterId: "1"
+                name: 'Updated Fall Semester Schedule'
+                semesterId: '1'
       responses:
         '200':
           description: Schedule updated
@@ -809,7 +809,7 @@ paths:
             schema:
               $ref: '#/components/schemas/GenerateScheduleRequest'
             example:
-              semesterId: "1"
+              semesterId: '1'
               config:
                 populationSize: 100
                 crossoverRate: 0.8
@@ -841,14 +841,14 @@ paths:
             schema:
               $ref: '#/components/schemas/Event'
             example:
-              title: "Chemistry Lecture"
-              description: "Organic Chemistry Basics"
-              date: "2024-09-02"
-              dayOfWeek: "Tuesday"
-              startTime: "11:00"
-              endTime: "12:30"
-              scheduleId: "sched_123"
-              groupId: "group_789"
+              title: 'Chemistry Lecture'
+              description: 'Organic Chemistry Basics'
+              date: '2024-09-02'
+              dayOfWeek: 'Tuesday'
+              startTime: '11:00'
+              endTime: '12:30'
+              scheduleId: 'sched_123'
+              groupId: 'group_789'
       responses:
         '201':
           description: Event created
@@ -906,14 +906,14 @@ paths:
             schema:
               $ref: '#/components/schemas/Event'
             example:
-              title: "Advanced Chemistry Lecture"
-              description: "In-depth Organic Chemistry"
-              date: "2024-09-03"
-              dayOfWeek: "Wednesday"
-              startTime: "14:00"
-              endTime: "15:30"
-              scheduleId: "sched_123"
-              groupId: "group_789"
+              title: 'Advanced Chemistry Lecture'
+              description: 'In-depth Organic Chemistry'
+              date: '2024-09-03'
+              dayOfWeek: 'Wednesday'
+              startTime: '14:00'
+              endTime: '15:30'
+              scheduleId: 'sched_123'
+              groupId: 'group_789'
       responses:
         '200':
           description: Event updated
@@ -979,10 +979,10 @@ paths:
             schema:
               $ref: '#/components/schemas/Group'
             example:
-              name: "Group B"
+              name: 'Group B'
               subjects:
-                - id: "subject_101"
-                  name: "Calculus I"
+                - id: 'subject_101'
+                  name: 'Calculus I'
                   hoursPerWeek: 4
       responses:
         '201':
@@ -1041,10 +1041,10 @@ paths:
             schema:
               $ref: '#/components/schemas/Group'
             example:
-              name: "Group B - Updated"
+              name: 'Group B - Updated'
               subjects:
-                - id: "subject_102"
-                  name: "Physics II"
+                - id: 'subject_102'
+                  name: 'Physics II'
                   hoursPerWeek: 3
       responses:
         '200':
@@ -1109,7 +1109,7 @@ paths:
             schema:
               $ref: '#/components/schemas/Subject'
             example:
-              name: "Biology I"
+              name: 'Biology I'
               hoursPerWeek: 3
       responses:
         '201':
@@ -1168,7 +1168,7 @@ paths:
             schema:
               $ref: '#/components/schemas/Subject'
             example:
-              name: "Biology II"
+              name: 'Biology II'
               hoursPerWeek: 4
       responses:
         '200':
@@ -1334,9 +1334,9 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateSemesterDto'
             example:
-              title: "Spring 2025"
-              start_date: "2025-01-15"
-              end_date: "2025-05-15"
+              title: 'Spring 2025'
+              start_date: '2025-01-15'
+              end_date: '2025-05-15'
       responses:
         '201':
           description: Semester created successfully
@@ -1411,9 +1411,9 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateSemesterDto'
             example:
-              title: "Advanced Spring 2025"
-              start_date: "2025-01-20"
-              end_date: "2025-05-20"
+              title: 'Advanced Spring 2025'
+              start_date: '2025-01-20'
+              end_date: '2025-05-20'
       responses:
         '200':
           description: Semester updated successfully
@@ -1489,7 +1489,7 @@ paths:
                   type: integer
                   description: Maximum number of students the classroom can accommodate
               example:
-                name: "Chemistry 201"
+                name: 'Chemistry 201'
                 capacity: 25
       responses:
         '201':
@@ -1557,7 +1557,7 @@ paths:
                   type: integer
                   description: Maximum number of students the classroom can accommodate
               example:
-                name: "Advanced Physics 301"
+                name: 'Advanced Physics 301'
                 capacity: 35
       responses:
         '200':
@@ -1593,3 +1593,137 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+
+  /excelparser/upload:
+    post:
+      operationId: ExcelparserController_uploadExcel
+      summary: Upload and parse an Excel file
+      parameters: []
+      requestBody:
+        required: true
+        description: Upload an Excel file for parsing
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: ''
+      tags: &a3
+        - Excel Parser
+
+  /excelparser/teacher-data:
+    get:
+      operationId: ExcelparserController_getTeacherData
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags: *a3
+
+  /v1/assignments:
+    post:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_create
+      summary: Create a new teaching assignment
+      parameters: []
+      responses:
+        '201':
+          description: TeachingAssignment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignment'
+        '400':
+          description: Invalid input data
+    tags: &a3
+      - Teaching assignments
+    security: &a4
+      - bearer: []
+    get:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_findAll
+      summary: Retrieve all teaching assignments
+      parameters: []
+      responses:
+        '200':
+          description: List of teaching assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeachingAssignment'
+      security: *a4
+
+  /v1/assignments/{assignmentId}:
+    get:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_findOne
+      summary: Retrieve a teaching assignment by ID
+      parameters:
+        - name: assignmentId
+          required: true
+          in: path
+          description: ID of the teaching assignment to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TeachingAssignment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignment'
+        '404':
+          description: TeachingAssignment not found
+      security: *a4
+    patch:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_update
+      summary: Update a teaching assignment by ID
+      parameters:
+        - name: assignmentId
+          required: true
+          in: path
+          description: ID of the teaching assignment to update
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TeachingAssignment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignment'
+        '400':
+          description: Invalid input data
+        '404':
+          description: TeachingAssignment not found
+      security: *a4
+    delete:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_remove
+      summary: Delete a teaching assignment by ID
+      parameters:
+        - name: assignmentId
+          required: true
+          in: path
+          description: ID of the teaching assignment to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: TeachingAssignment deleted successfully
+        '404':
+          description: TeachingAssignment not found
+      security: *a4

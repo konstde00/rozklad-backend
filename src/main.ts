@@ -2,8 +2,9 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { BigIntInterceptor } from './bigint.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { writeFileSync } from 'fs';
+import YAML from 'yaml'
 
 async function bootstrap() {
 
@@ -17,6 +18,8 @@ async function bootstrap() {
 		.build()
 
 	const document = SwaggerModule.createDocument(app, config,)
+  
+	// writeFileSync('./openapi.yaml', YAML.stringify(document), 'utf8');
 	SwaggerModule.setup('docs', app, document,)
 
 	app.enableCors({
