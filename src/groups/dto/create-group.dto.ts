@@ -16,14 +16,7 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsInt()
-  study_year?: number;
-
-  @IsOptional()
-  @IsInt()
   students_count?: number;
-
-  @IsInt()
-  course_number: number;
 
   @IsInt()
   speciality: number;
