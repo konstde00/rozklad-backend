@@ -116,22 +116,22 @@ components:
       type: object
       required:
         - title
-        - date
+        - dayOfWeek
         - startTime
         - endTime
         - scheduleId
-        - groupId
+        - groupName
+        - teacherName
+        - subjectName
+        - classroomName
+        - lessonType
       properties:
         id:
           type: string
+          description: Unique identifier of the event
         title:
           type: string
-        description:
-          type: string
-        date:
-          type: string
-          format: date
-          description: Date of the event in 'YYYY-MM-DD' format
+          description: Title of the event
         dayOfWeek:
           type: string
           enum:
@@ -142,6 +142,7 @@ components:
             - Friday
             - Saturday
             - Sunday
+          description: Day of the week when the event occurs
         startTime:
           type: string
           pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
@@ -153,19 +154,37 @@ components:
         scheduleId:
           type: string
           description: ID of the schedule this event belongs to
-        groupId:
+        groupName:
           type: string
-          description: ID of the group associated with this event
+          description: Name of the group associated with this event
+        teacherName:
+          type: string
+          description: Name of the teacher conducting the event
+        subjectName:
+          type: string
+          description: Subject of the event
+        classroomName:
+          type: string
+          description: Classroom where the event takes place
+        lessonType:
+          type: string
+          enum:
+            - lecture
+            - practice
+            - lab
+          description: Type of the lesson (lecture, practice, or lab)
       example:
-        id: 'event_456'
-        title: 'Physics Lecture'
-        description: 'Introduction to Mechanics'
-        date: '2024-09-01'
+        id: '1'
+        title: 'Статистичне моделювання'
         dayOfWeek: 'Monday'
-        startTime: '09:00'
-        endTime: '10:30'
-        scheduleId: 'sched_123'
-        groupId: 'group_789'
+        startTime: '08:40'
+        endTime: '09:25'
+        scheduleId: '1'
+        groupName: 'K-17'
+        teacherName: 'Тарас Панченко'
+        subjectName: 'Статистичне моделювання'
+        classroomName: 'Аудиторія 221'
+        lessonType: 'practice'
 
     Subject:
       type: object
@@ -201,13 +220,12 @@ components:
         speciality:
           type: integer
           description: Specialization or major of the group
+        course_number:
+          type: integer
+          description: Course of the group
         students_count:
           type: integer
           description: Number of students in the group
-        subjects:
-          type: array
-          items:
-            $ref: '#/components/schemas/Subject'
       example:
         id: 'group_789'
         name: 'Group A'

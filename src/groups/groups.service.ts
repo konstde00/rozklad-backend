@@ -116,7 +116,6 @@ export class GroupsService {
     return <GroupDto>{
       id: group.id.toString(),
       name: group.name,
-      study_year: group.study_year,
       students_count: group.students_count,
       course_number: group.course_number,
       teachingAssignments: uniqueSubjects,
