@@ -24,7 +24,7 @@ export class TeachingAssignmentsService {
 
   async findOne(id: string) {
     const teachingAssignment = await this.prisma.teachingAssignment.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
       include: {
         teacher: {
           select: { id: true, first_name: true, last_name: true },
@@ -48,9 +48,9 @@ export class TeachingAssignmentsService {
   async create(data: any) {
     const teachingAssignment = await this.prisma.teachingAssignment.create({
       data: {
-        teacher_id: BigInt(data.teacherId),
-        group_id: BigInt(data.groupId),
-        subject_id: BigInt(data.subjectId),
+        teacher_id: data.teacherId,
+        group_id: data.groupId,
+        subject_id: data.subjectId,
         speciality: data.speciality,
         course_number: data.courseNumber,
         lecture_hours_per_semester: data.lectureHoursPerSemester,
@@ -76,7 +76,7 @@ export class TeachingAssignmentsService {
 
   async update(id: string, data: any) {
     const teachingAssignmentExists = await this.prisma.teachingAssignment.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
 
     if (!teachingAssignmentExists) {
@@ -84,11 +84,11 @@ export class TeachingAssignmentsService {
     }
 
     const teachingAssignment = await this.prisma.teachingAssignment.update({
-      where: { id: BigInt(id) },
+      where: { id: +id },
       data: {
-        teacher_id: BigInt(data.teacherId),
-        group_id: BigInt(data.groupId),
-        subject_id: BigInt(data.subjectId),
+        teacher_id: data.teacherId,
+        group_id: data.groupId,
+        subject_id: data.subjectId,
         speciality: data.speciality,
         course_number: data.courseNumber,
         lecture_hours_per_semester: data.lectureHoursPerSemester,
@@ -114,7 +114,7 @@ export class TeachingAssignmentsService {
 
   async remove(id: string) {
     const teachingAssignmentExists = await this.prisma.teachingAssignment.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
 
     if (!teachingAssignmentExists) {
@@ -122,7 +122,7 @@ export class TeachingAssignmentsService {
     }
 
     await this.prisma.teachingAssignment.delete({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
   }
 
@@ -159,9 +159,9 @@ export class TeachingAssignmentsService {
 
       await this.prisma.teachingAssignment.create({
         data: {
-          teacher_id: BigInt(teacherId),
+          teacher_id: teacherId,
           group_id: null,
-          subject_id: BigInt(subjectId),
+          subject_id: subjectId,
           speciality: +specialityCode,
           course_number: +courseNumber,
           lecture_hours_per_semester: +lec,

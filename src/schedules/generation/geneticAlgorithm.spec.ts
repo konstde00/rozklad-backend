@@ -11,17 +11,17 @@ import { LessonType } from '@prisma/client';
 
 describe('Genetic Algorithm', () => {
   let data;
-  let semesterId: bigint;
+  let semesterId: number;
   let weeksInSemester: number;
   let config: GeneticAlgorithmConfig;
 
   beforeEach(() => {
-    semesterId = BigInt(1);
+    semesterId = 1;
     weeksInSemester = 14;
     data = {
       semesters: [
         {
-          id: BigInt(1),
+          id: 1,
           title: 'First Semester 2024',
           start_date: new Date('2024-09-01T00:00:00Z'), // UTC
           end_date: new Date('2024-12-08T00:00:00Z'),   // UTC
@@ -31,7 +31,7 @@ describe('Genetic Algorithm', () => {
       ],
       studentGroups: [
         {
-          id: BigInt(1),
+          id: 1,
           name: 'Group A',
           study_year: 1,
           students_count: 30,
@@ -40,7 +40,7 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
         {
-          id: BigInt(2),
+          id: 2,
           name: 'Group B',
           study_year: 1,
           students_count: 25,
@@ -51,13 +51,13 @@ describe('Genetic Algorithm', () => {
       ],
       subjects: [
         {
-          id: BigInt(1),
+          id: 1,
           name: 'Statistic Modelling',
           created_at: new Date(),
           updated_at: new Date(),
         },
         {
-          id: BigInt(2),
+          id: 2,
           name: 'Web Technologies',
           created_at: new Date(),
           updated_at: new Date(),
@@ -65,14 +65,14 @@ describe('Genetic Algorithm', () => {
       ],
       teachers: [
         {
-          id: BigInt(1),
+          id: 1,
           first_name: 'Alice',
           last_name: 'Smith',
           max_hours_per_week: 40,
           created_at: new Date(),
           updated_at: new Date(),
           user: {
-            id: BigInt(1),
+            id: 1,
             username: 'alice',
             email: 'alice@example.com',
             password_hash: 'password',
@@ -82,14 +82,14 @@ describe('Genetic Algorithm', () => {
           },
         },
         {
-          id: BigInt(2),
+          id: 2,
           first_name: 'Bob',
           last_name: 'Johnson',
           max_hours_per_week: 40,
           created_at: new Date(),
           updated_at: new Date(),
           user: {
-            id: BigInt(2),
+            id: 2,
             username: 'bob',
             email: 'bob@example.com',
             password_hash: 'password',
@@ -118,11 +118,11 @@ describe('Genetic Algorithm', () => {
 
       teachingAssignments: [
         {
-          id: BigInt(1),
-          teacher_id: BigInt(1),    // Alice
-          group_id: BigInt(1),      // Group A
+          id: 1,
+          teacher_id: 1,    // Alice
+          group_id: 1,      // Group A
           course_number: 1,
-          subject_id: BigInt(1),    // Statistic Modelling
+          subject_id: 1,    // Statistic Modelling
           lecture_hours_per_semester: 28,
           practice_hours_per_semester: 42,
           lab_hours_per_semester: 14,
@@ -131,11 +131,11 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
         {
-          id: BigInt(2),
-          teacher_id: BigInt(1),    // Alice
-          group_id: BigInt(2),      // Group B
+          id: 2,
+          teacher_id: 1,    // Alice
+          group_id: 2,      // Group B
           course_number: 1,
-          subject_id: BigInt(1),    // Statistic Modelling
+          subject_id: 1,    // Statistic Modelling
           lecture_hours_per_semester: 28,
           practice_hours_per_semester: 42,
           lab_hours_per_semester: 14,
@@ -144,11 +144,11 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
         {
-          id: BigInt(3),
-          teacher_id: BigInt(2),    // Bob
-          group_id: BigInt(1),      // Group A
+          id: 3,
+          teacher_id: 2,    // Bob
+          group_id: 1,      // Group A
           course_number: 1,
-          subject_id: BigInt(2),    // Web Technologies
+          subject_id: 2,    // Web Technologies
           lecture_hours_per_semester: 30,
           practice_hours_per_semester: 40,
           lab_hours_per_semester: 16,
@@ -215,11 +215,6 @@ describe('Genetic Algorithm', () => {
     const semesterStartDate = clonedData.semesters[0].start_date;
     const semesterEndDate = clonedData.semesters[0].end_date;
 
-    // Serialize BigInt for logging purposes
-    (BigInt.prototype as any).toJSON = function () {
-      return this.toString();
-    };
-
     console.log('Best Weekly Schedule:', JSON.stringify(bestWeeklySchedule, null, 2));
 
     const fullSemesterEvents = await expandWeeklyScheduleToSemester(
@@ -249,8 +244,8 @@ describe('Genetic Algorithm', () => {
     // Verify that scheduled hours meet or are within a tolerance of the required hours
     groupSubjectLessonTypeHours.forEach((scheduledHours, key) => {
       const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
-      const groupId = BigInt(groupIdStr);
-      const subjectId = BigInt(subjectIdStr);
+      const groupId = groupIdStr;
+      const subjectId = subjectIdStr;
       const lessonType = lessonTypeStr as LessonType;
 
       const assignment = clonedData.teachingAssignments.find(

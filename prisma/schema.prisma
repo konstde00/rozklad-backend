@@ -23,16 +23,16 @@ model Classroom {
 /// Represents a scheduled lesson or class session.
 /// Includes information about time, location, subject, teacher, and student group.
 model Event {
-  id             BigInt      @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   title          String      @db.VarChar(100)
   day_of_week    DayOfWeek
   start_time     DateTime    @db.DateTime(6)
   end_time       DateTime    @db.DateTime(6)
-  schedule_id    BigInt
-  group_id       BigInt
-  teacher_id     BigInt
+  schedule_id    Int
+  group_id       Int
+  teacher_id     Int
   classroom_id   Int
-  subject_id     BigInt
+  subject_id     Int
   lesson_type    LessonType
   created_at     DateTime?   @default(now())
   updated_at     DateTime?   @default(now())
@@ -57,9 +57,9 @@ model Event {
 
 /// Represents a collection of events (classes) for a particular semester.
 model Schedule {
-  id          BigInt    @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   name        String    @db.VarChar(100)
-  semester_id BigInt
+  semester_id Int
   created_at  DateTime? @default(now())
   updated_at  DateTime? @default(now())
 
@@ -73,7 +73,7 @@ model Schedule {
 
 /// Represents an academic semester with a title and start/end dates.
 model Semester {
-  id         BigInt     @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   title      String     @db.VarChar(100)
   start_date DateTime   @db.Date
   end_date   DateTime   @db.Date
@@ -86,7 +86,7 @@ model Semester {
 
 /// Represents a group of students.
 model StudentGroup {
-  id             BigInt              @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   name           String              @db.VarChar(100)
   students_count Int
   speciality     Int
@@ -104,7 +104,7 @@ model StudentGroup {
 
 /// Represents an academic subject or course.
 model Subject {
-  id           BigInt             @id @default(autoincrement())
+  id           Int             @id @default(autoincrement())
   name         String             @db.VarChar(500)
   created_at   DateTime?          @default(now())
   updated_at   DateTime?          @default(now())
@@ -118,7 +118,7 @@ model Subject {
 /// Represents an instructor or professor.
 /// Includes personal details and their maximum teaching hours per week.
 model Teacher {
-  id                 BigInt             @id @default(autoincrement())
+  id                 Int             @id @default(autoincrement())
   first_name         String             @db.VarChar(100)
   last_name          String             @db.VarChar(100)
   max_hours_per_week Int
@@ -151,12 +151,12 @@ model User {
 /// Represents the assignment of a teacher to teach a specific subject to a group,
 /// within a specific course, specifying the lesson types and hours per semester.
 model TeachingAssignment {
-  id                          BigInt      @id @default(autoincrement())
-  teacher_id                  BigInt
+  id                          Int      @id @default(autoincrement())
+  teacher_id                  Int
   speciality                  Int
-  group_id                    BigInt?
+  group_id                    Int?
   course_number               Int
-  subject_id                  BigInt
+  subject_id                  Int
   lecture_hours_per_semester  Int
   practice_hours_per_semester Int
   lab_hours_per_semester      Int

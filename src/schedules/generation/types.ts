@@ -10,9 +10,9 @@ export type WeeklyEvent = {
   title: string;
   dayOfWeek: DayOfWeek;
   timeSlot: number; // index of TIME_SLOTS
-  groupId: bigint;
-  teacherId: bigint;
-  subjectId: bigint;
+  groupId: number;
+  teacherId: number;
+  subjectId: number;
   classroomId: number;
   lessonType: LessonType;
 };

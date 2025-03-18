@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsInt,
   IsArray,
-  ArrayNotEmpty,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -17,17 +16,13 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsInt()
-  study_year?: number;
-
-  @IsOptional()
-  @IsInt()
   students_count?: number;
 
   @IsInt()
-  course_number: number;
+  speciality: number;
 
   @IsInt()
-  speciality: number;
+  course_number: number;
 
   @IsOptional()
   @IsArray()

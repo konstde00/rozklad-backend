@@ -27,7 +27,7 @@ export class SubjectsService {
    */
   async findOne(id: string): Promise<SubjectDto> {
     const subject = await this.prisma.subject.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
     if (!subject) {
       throw new NotFoundException('Subject not found');
@@ -58,7 +58,7 @@ export class SubjectsService {
    */
   async update(id: string, updateSubjectDto: UpdateSubjectDto): Promise<SubjectDto> {
     const subjectExists = await this.prisma.subject.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
     if (!subjectExists) {
       throw new NotFoundException('Subject not found');
@@ -69,7 +69,7 @@ export class SubjectsService {
     };
 
     const subject = await this.prisma.subject.update({
-      where: { id: BigInt(id) },
+      where: { id: +id },
       data,
     });
     return this.toSubjectDto(subject);
@@ -83,13 +83,13 @@ export class SubjectsService {
    */
   async remove(id: string): Promise<void> {
     const subjectExists = await this.prisma.subject.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
     if (!subjectExists) {
       throw new NotFoundException('Subject not found');
     }
     await this.prisma.subject.delete({
-      where: { id: BigInt(id) },
+      where: { id: +id },
     });
   }
 

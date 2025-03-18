@@ -5,12 +5,4 @@ export class UpdateSubjectDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @IsNotEmpty()
-  @IsInt()
-  lectureHoursPerSemester: number;
-
-  @IsNotEmpty()
-  @IsInt()
-  practiceHoursPerSemester: number;
 }

@@ -33,10 +33,11 @@ describe('GroupsService', () => {
   it('should retrieve all groups', async () => {
     const mockGroups = [
       {
-        id: BigInt(1),
+        id: 1,
         name: 'Group 1',
         students_count: 20,
         course_number: 1,
+        speciality: 42,
         created_at: new Date(),
         updated_at: new Date(),
         teachingAssignments: [],
@@ -66,7 +67,7 @@ describe('GroupsService', () => {
 
     await expect(service.findOne('1')).rejects.toThrow(NotFoundException);
     expect(prismaService.studentGroup.findUnique).toHaveBeenCalledWith({
-      where: { id: BigInt(1) },
+      where: { id: 1 },
       include: {
         teachingAssignments: {
           include: {
@@ -82,12 +83,13 @@ describe('GroupsService', () => {
       name: 'New Group',
       students_count: 25,
       course_number: 2,
+      speciality: 42,
       created_at: new Date(),
       updated_at: new Date(),
       teachingAssignments: [],
     };
     const mockGroup = {
-      id: BigInt(2),
+      id: 2,
       ...createGroupDto,
       teachingAssignments: [],
     };
@@ -99,6 +101,7 @@ describe('GroupsService', () => {
     expect(prismaService.studentGroup.create).toHaveBeenCalledWith({
       data: {
         name: createGroupDto.name,
+        speciality: 42,
         students_count: createGroupDto.students_count,
         course_number: createGroupDto.course_number,
       },
@@ -115,7 +118,9 @@ describe('GroupsService', () => {
       name: mockGroup.name,
       students_count: mockGroup.students_count,
       course_number: mockGroup.course_number,
+      study_year: undefined,
       teachingAssignments: [],
     });
+
   });
 });

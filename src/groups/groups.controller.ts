@@ -19,7 +19,7 @@ import { GroupDto } from './dto/group.dto';
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
-  /*@Get()
+  @Get()
   async findAll(): Promise<GroupDto[]> {
     return this.groupsService.findAll();
   }
@@ -46,5 +46,5 @@ export class GroupsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('groupId') id: string): Promise<void> {
     return this.groupsService.remove(id);
-  }*/
+  }
 }

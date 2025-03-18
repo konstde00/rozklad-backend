@@ -9,6 +9,7 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import { Prisma, UserRole } from '@prisma/client';
+import { $Enums } from '.prisma/client';
 
 @Injectable()
 export class TeachersService {
@@ -131,8 +132,9 @@ export class TeachersService {
           data: {
             username: `${firstName}.${lastName}`,
             email: `${firstName}.${lastName}@temporalmail.com`,
-            password_hash,
+            password_hash: password_hash,
             role: UserRole.teacher,
+            code: '',
           },
         });
 

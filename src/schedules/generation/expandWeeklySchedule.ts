@@ -37,12 +37,12 @@ export async function expandWeeklyScheduleToSemester(
         endTime.setHours(endHour, endMinute, 0, 0);
 
         const prismaEvent: PrismaEvent = {
-          id: BigInt(0),
+          id: 0,
           title: event.title,
           day_of_week: event.dayOfWeek,
           start_time: startTime,
           end_time: endTime,
-          schedule_id: BigInt(0), // Assign the appropriate schedule ID
+          schedule_id: 0, // Assign the appropriate schedule ID
           group_id: event.groupId,
           subject_id: event.subjectId,
           teacher_id: event.teacherId,

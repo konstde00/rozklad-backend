@@ -41,7 +41,7 @@ export class SubjectsController {
   ): Promise<SubjectDto> {
     return this.subjectsService.update(id, updateSubjectDto);
   }
-
+  
   @Delete(':subjectId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('subjectId') id: string): Promise<void> {

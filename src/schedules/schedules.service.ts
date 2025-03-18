@@ -28,7 +28,7 @@ export class SchedulesService {
    */
   async findBySemesterId(semesterId: string): Promise<ScheduleDto[]> {
     const schedules = await this.prisma.schedule.findMany({
-      where: { semester_id: BigInt(semesterId) },
+      where: { semester_id: +semesterId },
       include: {
         events: {
           include: {
@@ -56,7 +56,7 @@ export class SchedulesService {
 
     await this.assignGroupsToTeachingAssignments();
 
-    const semesterId = BigInt(generateScheduleDto.semesterId);
+    const semesterId = +generateScheduleDto.semesterId;
 
     const semester = await this.prisma.semester.findUnique({
       where: { id: semesterId },
@@ -125,7 +125,7 @@ export class SchedulesService {
    * @param scheduleId - The ID of the schedule.
    * @param events - An array of events to be created.
    */
-  private async createEventsForSchedule(scheduleId: bigint, events: any[]) {
+  private async createEventsForSchedule(scheduleId: number, events: any[]) {
     if (events.length === 0) {
       //console.warn(`No events to create for schedule ID ${scheduleId}`);
       return;

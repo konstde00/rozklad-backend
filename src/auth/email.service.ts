@@ -20,6 +20,7 @@ export class EmailService {
         TextBody: `To confirm your signup, input this code: ${code}`,
         MessageStream: 'outbound',
       });
+      console.log('Code:', code);
       console.log('Email sent successfully:', response);
     } catch (error) {
       console.error('Failed to send email:', error);

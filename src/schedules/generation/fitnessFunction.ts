@@ -54,8 +54,8 @@ function calculateHoursMismatchPenalty(
   groupSubjectLessonTypeHours.forEach((weeklyHours, key) => {
     const totalScheduledHours = weeklyHours * semesterWeeks;
     const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
-    const groupId = BigInt(groupIdStr);
-    const subjectId = BigInt(subjectIdStr);
+    const groupId = Number(groupIdStr);
+    const subjectId = Number(subjectIdStr);
     const lessonType = lessonTypeStr as LessonType;
 
     const assignment = data.teachingAssignments.find(
@@ -87,7 +87,7 @@ function calculateTeacherHoursPenalty(
   data: DataService
 ): number {
   let penalty = 0;
-  const teacherWeeklyHours = new Map<bigint, number>();
+  const teacherWeeklyHours = new Map<number, number>();
 
   events.forEach((event) => {
     const teacherId = event.teacherId;
@@ -121,7 +121,7 @@ function calculateTeacherHoursPenalty(
 function countTeacherGaps(events: WeeklyEvent[]): number {
   let totalGaps = 0;
 
-  const teacherSchedules = new Map<bigint, Map<DayOfWeek, number[]>>();
+  const teacherSchedules = new Map<number, Map<DayOfWeek, number[]>>();
 
   events.forEach((event) => {
     const { teacherId, dayOfWeek, timeSlot } = event;
