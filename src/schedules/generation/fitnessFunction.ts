@@ -54,8 +54,8 @@ function calculateHoursMismatchPenalty(
   groupSubjectLessonTypeHours.forEach((weeklyHours, key) => {
     const totalScheduledHours = weeklyHours * semesterWeeks;
     const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
-    const groupId = BigInt(groupIdStr);
-    const subjectId = BigInt(subjectIdStr);
+    const groupId = Number(groupIdStr);
+    const subjectId = Number(subjectIdStr);
     const lessonType = lessonTypeStr as LessonType;
 
     const assignment = data.teachingAssignments.find(

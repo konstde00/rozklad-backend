@@ -215,11 +215,6 @@ describe('Genetic Algorithm', () => {
     const semesterStartDate = clonedData.semesters[0].start_date;
     const semesterEndDate = clonedData.semesters[0].end_date;
 
-    // Serialize BigInt for logging purposes
-    (BigInt.prototype as any).toJSON = function () {
-      return this.toString();
-    };
-
     console.log('Best Weekly Schedule:', JSON.stringify(bestWeeklySchedule, null, 2));
 
     const fullSemesterEvents = await expandWeeklyScheduleToSemester(

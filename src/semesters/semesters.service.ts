@@ -103,7 +103,7 @@ export class SemestersService {
   private transformSemester(semester: any) {
     return {
       ...semester,
-      id: semester.id.toString(), // Convert BigInt to string for JSON serialization
+      id: semester.id.toString(), // Convert number to string for JSON serialization
     };
   }
 }
