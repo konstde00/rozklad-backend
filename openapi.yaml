@@ -190,16 +190,12 @@ components:
       type: object
       required:
         - name
-        - hoursPerWeek
       properties:
         id:
           type: string
           description: Unique identifier for the subject
         name:
           type: string
-        hoursPerWeek:
-          type: integer
-          description: Number of hours per week the subject is taught
       example:
         id: 'subject_101'
         name: 'Calculus I'
