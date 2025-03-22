@@ -1,4 +1,3 @@
-
 import { runGeneticAlgorithm } from './geneticAlgorithm';
 import { GeneticAlgorithmConfig } from '../interfaces';
 import { generateRandomWeeklySchedule } from './scheduleGenerator';
@@ -7,10 +6,10 @@ import { WeeklyEvent, WeeklySchedule } from './types';
 import { expandWeeklyScheduleToSemester } from './expandWeeklySchedule';
 import { TIME_SLOTS } from '../timeSlots';
 import _ from 'lodash';
-import { LessonType } from '@prisma/client';
+import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
 
 describe('Genetic Algorithm', () => {
-  let data;
+  let data: any;
   let semesterId: number;
   let weeksInSemester: number;
   let config: GeneticAlgorithmConfig;
@@ -98,6 +97,24 @@ describe('Genetic Algorithm', () => {
             updated_at: new Date(),
           },
         },
+        // NEW TEACHER for testing REQUIRED_FREE
+        {
+          id: 3,
+          first_name: 'Charlie',
+          last_name: 'White',
+          max_hours_per_week: 10,
+          created_at: new Date(),
+          updated_at: new Date(),
+          user: {
+            id: 3,
+            username: 'charlie',
+            email: 'charlie@example.com',
+            password_hash: 'password',
+            role: 'teacher',
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        },
       ],
       classrooms: [
         {
@@ -156,8 +173,33 @@ describe('Genetic Algorithm', () => {
           created_at: new Date(),
           updated_at: new Date(),
         },
+        {
+          id: 4,
+          teacher_id: 3,    // Charlie
+          group_id: 2,      // Group B
+          course_number: 1,
+          subject_id: 2,    // Web Technologies
+          lecture_hours_per_semester: 5,
+          practice_hours_per_semester: 5,
+          lab_hours_per_semester: 0,
+          seminar_hours_per_semester: 0,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
       ],
       timeSlots: TIME_SLOTS,
+
+      teacherPreferences: [
+        {
+          id: 500,
+          teacher_id: 3,
+          day_of_week: DayOfWeek.Monday,    // Monday
+          time_slot_index: 0,              // 08:40-09:25
+          preference: PreferenceType.REQUIRED_FREE, // Hard constraint
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ],
     };
 
     config = {
@@ -244,19 +286,18 @@ describe('Genetic Algorithm', () => {
     // Verify that scheduled hours meet or are within a tolerance of the required hours
     groupSubjectLessonTypeHours.forEach((scheduledHours, key) => {
       const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
-      const groupId = groupIdStr;
-      const subjectId = subjectIdStr;
+
+      const groupId = parseInt(groupIdStr, 10);
+      const subjectId = parseInt(subjectIdStr, 10);
       const lessonType = lessonTypeStr as LessonType;
 
       const assignment = clonedData.teachingAssignments.find(
-        (ta) =>
-          ta.group_id === groupId &&
-          ta.subject_id === subjectId,
+        (ta) => ta.group_id === groupId && ta.subject_id === subjectId,
       );
 
       if (!assignment) {
         throw new Error(
-          `TeachingAssignment for group ${groupId.toString()}, subject ${subjectId.toString()} not found`,
+          `TeachingAssignment for group ${groupId}, subject ${subjectId} not found`
         );
       }
 
@@ -357,5 +398,27 @@ describe('Genetic Algorithm', () => {
     }
 
     expect(conflicts.length).toBe(0);
+  });
+
+  it('should not schedule the new teacher (ID=3) in his REQUIRED_FREE slot', async () => {
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, data, semesterId);
+
+    // Teacher #3's preference is Monday, timeSlot=0, REQUIRED_FREE
+    const invalidEvents = bestWeeklySchedule.events.filter(
+      (ev) =>
+        ev.teacherId === 3 &&
+        ev.dayOfWeek === DayOfWeek.Monday &&
+        ev.timeSlot === 0
+    );
+
+    if (invalidEvents.length > 0) {
+      console.error(
+        'Found events scheduled in a REQUIRED_FREE slot for teacher #3:',
+        invalidEvents
+      );
+    }
+
+    // We expect none
+    expect(invalidEvents.length).toBe(0);
   });
 });
