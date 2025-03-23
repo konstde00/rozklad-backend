@@ -1,4 +1,6 @@
 
+// scheduleGenerator.ts
+
 import { WeeklyEvent, WeeklySchedule } from './types';
 import { TIME_SLOTS } from '../timeSlots';
 import { DataService } from '../interfaces';

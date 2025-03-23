@@ -11,6 +11,7 @@ import { TeachersModule } from './teachers/teachers.module';
 import { ConfigModule } from '@nestjs/config';
 import { TeachingAssignmentsModule } from './teachingAssignments/teaching-assignments.module';
 import { ExcelparserModule } from './excelparser/excelparser.module';
+import { TeacherPreferencesModule } from './teacher-preferences/teacher-preferences.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { ExcelparserModule } from './excelparser/excelparser.module';
     SchedulesModule,
     TeachersModule,
     TeachingAssignmentsModule,
-    ExcelparserModule
+    ExcelparserModule,
+    TeacherPreferencesModule
   ]
 })
 export class AppModule {}

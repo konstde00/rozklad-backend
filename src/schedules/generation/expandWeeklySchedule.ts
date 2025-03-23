@@ -1,4 +1,6 @@
 
+// expandWeeklySchedule.ts
+
 import { WeeklySchedule } from './types';
 import { Event as PrismaEvent } from '@prisma/client';
 import { TIME_SLOTS } from '../timeSlots';

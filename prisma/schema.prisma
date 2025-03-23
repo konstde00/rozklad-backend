@@ -129,6 +129,25 @@ model Teacher {
   teachingAssignments TeachingAssignment[]
   /// The events that this teacher conducts.
   events              Event[]
+
+  teacherPreferences  TeacherPreference[]
+}
+
+model TeacherPreference {
+  id              Int             @id @default(autoincrement())
+  teacher_id      Int
+  day_of_week     DayOfWeek
+  time_slot_index Int
+  preference      PreferenceType
+  created_at      DateTime?       @default(now())
+  updated_at      DateTime?       @default(now())
+
+  teacher         Teacher         @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Each teacher can only have one preference record per day_of_week + time_slot_index
+  @@unique([teacher_id, day_of_week, time_slot_index])
+
+  @@index([teacher_id])
 }
 
 /// Represents a system user.
@@ -198,4 +217,11 @@ enum UserRole {
   teacher
   faculty_admin
   system_admin
+}
+
+enum PreferenceType {
+  REQUIRED_FREE
+  PREFERRED_FREE
+  PREFERRED_BUSY
+  NEUTRAL
 }
