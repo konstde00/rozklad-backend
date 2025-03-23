@@ -75,9 +75,10 @@ export class TeachingAssignmentsService {
   }
 
   async update(id: string, data: any) {
-    const teachingAssignmentExists = await this.prisma.teachingAssignment.findUnique({
-      where: { id: +id },
-    });
+    const teachingAssignmentExists =
+      await this.prisma.teachingAssignment.findUnique({
+        where: { id: +id },
+      });
 
     if (!teachingAssignmentExists) {
       throw new NotFoundException('Teaching assignment not found');
@@ -113,9 +114,10 @@ export class TeachingAssignmentsService {
   }
 
   async remove(id: string) {
-    const teachingAssignmentExists = await this.prisma.teachingAssignment.findUnique({
-      where: { id: +id },
-    });
+    const teachingAssignmentExists =
+      await this.prisma.teachingAssignment.findUnique({
+        where: { id: +id },
+      });
 
     if (!teachingAssignmentExists) {
       throw new NotFoundException('Teaching assignment not found');
@@ -126,6 +128,10 @@ export class TeachingAssignmentsService {
     });
   }
 
+  async removeAll() {
+    await this.prisma.teachingAssignment.deleteMany();
+  }
+
   private toDto(teachingAssignment: any) {
     return {
       id: teachingAssignment.id.toString(),
@@ -133,10 +139,12 @@ export class TeachingAssignmentsService {
         id: teachingAssignment.teacher.id.toString(),
         fullName: `${teachingAssignment.teacher.first_name} ${teachingAssignment.teacher.last_name}`,
       },
-      studentGroup: {
-        id: teachingAssignment.studentGroup.id.toString(),
-        name: teachingAssignment.studentGroup.name,
-      },
+      studentGroup: teachingAssignment.studentGroup
+        ? {
+            id: teachingAssignment.studentGroup.id.toString(),
+            name: teachingAssignment.studentGroup.name,
+          }
+        : { id: '', name: '' },
       subject: {
         id: teachingAssignment.subject.id.toString(),
         name: teachingAssignment.subject.name,
@@ -154,8 +162,16 @@ export class TeachingAssignmentsService {
     const results = [];
 
     for (const entry of data) {
-
-      const { teacherId, subjectId, specialityCode, courseNumber, lec, lab, sem, pract } = entry;
+      const {
+        teacherId,
+        subjectId,
+        specialityCode,
+        courseNumber,
+        lec,
+        lab,
+        sem,
+        pract,
+      } = entry;
 
       await this.prisma.teachingAssignment.create({
         data: {
@@ -167,8 +183,8 @@ export class TeachingAssignmentsService {
           lecture_hours_per_semester: +lec,
           practice_hours_per_semester: +pract,
           lab_hours_per_semester: +lab,
-          seminar_hours_per_semester: +sem
-        }
+          seminar_hours_per_semester: +sem,
+        },
       });
     }
 

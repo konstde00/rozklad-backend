@@ -309,34 +309,60 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
           description: Unique identifier for the teaching assignment
-        teacher_id:
+        teacher:
+          type: object
+          properties:
+            id:
+              type: string
+              description: ID of the assigned teacher
+            fullName:
+              type: string
+              description: Full name of the teacher
+          required:
+            - id
+            - fullName
+        studentGroup:
+          type: object
+          properties:
+            id:
+              type: string
+              description: ID of the student group
+            name:
+              type: string
+              description: Name of the student group
+          required:
+            - id
+            - name
+        subject:
+          type: object
+          properties:
+            id:
+              type: string
+              description: ID of the subject
+            name:
+              type: string
+              description: Name of the subject
+          required:
+            - id
+            - name
+        speciality:
           type: integer
-          format: int64
-          description: ID of the assigned teacher
-        group_id:
-          type: integer
-          format: int64
-          description: ID of the student group
-        course_number:
+          description: Speciality code
+        courseNumber:
           type: integer
           description: Course number
-        subject_id:
-          type: integer
-          format: int64
-          description: ID of the subject
-        lecture_hours_per_semester:
+        lectureHoursPerSemester:
           type: integer
           description: Lecture hours per semester
-        practice_hours_per_semester:
+        practiceHoursPerSemester:
           type: integer
           description: Practice hours per semester
-        lab_hours_per_semester:
+        labHoursPerSemester:
           type: integer
           description: Lab hours per semester
-        seminar_hours_per_semester:
+        seminarHoursPerSemester:
           type: integer
           description: Seminar hours per semester
         created_at:
@@ -349,10 +375,11 @@ components:
           description: Record update timestamp
       required:
         - id
-        - teacher_id
-        - group_id
-        - course_number
-        - subject_id
+        - teacher
+        - studentGroup
+        - subject
+        - speciality
+        - courseNumber
 
     GenerateScheduleRequest:
       type: object
@@ -1674,6 +1701,15 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TeachingAssignment'
+      security: *a4
+    delete:
+      tags:
+        - Assignments
+      operationId: TeachingAssignmentsController_removeAll
+      summary: Delete all teaching assignments
+      responses:
+        '204':
+          description: All TeachingAssignments deleted successfully
       security: *a4
 
   /v1/assignments/{assignmentId}:

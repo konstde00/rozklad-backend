@@ -318,7 +318,7 @@ export class SchedulesService {
 
             if (!matchingGroup) {
               throw new NotFoundException(
-                `To generate schedule need to add group with speciality ${ta.speciality} for ${ta.course_number} education course`,
+                `Для генерації розкладу необхідно додати групу зі спеціальністю ${ta.speciality} для ${ta.course_number} курсу навчання`,
               );
             }
 
