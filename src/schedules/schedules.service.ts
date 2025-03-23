@@ -68,6 +68,15 @@ export class SchedulesService {
 
     const data: DataService = await getInitialData();
 
+    const unavailableGroups = data.studentGroups.filter(group =>
+      !data.classrooms.some(classroom => classroom.capacity >= group.students_count)
+    );
+
+    if (unavailableGroups.length > 0) {
+      const groupNames = unavailableGroups.map(g => g.name).join(', ');
+      throw new BadRequestException(`Not enough classrooms available for the following groups: ${groupNames}`);
+    }
+
     // Merge default config with any provided in the DTO
     const config: GeneticAlgorithmConfig = {
       populationSize: generateScheduleDto.config?.populationSize || 50,
@@ -330,21 +339,18 @@ export class SchedulesService {
               },
             });
 
-            if (existingTA) {
-              throw new BadRequestException(
-                `Group "${matchingGroup.name}" already has a teaching assignment for subject "${ta.subject.name}".`,
+            if (!existingTA) {
+
+              // Assign the matching group to the teaching assignment
+              await prisma.teachingAssignment.update({
+                where: { id: ta.id },
+                data: { group_id: matchingGroup.id },
+              });
+
+              console.log(
+                `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
               );
             }
-
-            // Assign the matching group to the teaching assignment
-            await prisma.teachingAssignment.update({
-              where: { id: ta.id },
-              data: { group_id: matchingGroup.id },
-            });
-
-            console.log(
-              `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
-            );
           }
         }
       });
