@@ -79,7 +79,7 @@ export class SchedulesService {
 
     // Merge default config with any provided in the DTO
     const config: GeneticAlgorithmConfig = {
-      populationSize: generateScheduleDto.config?.populationSize || 50,
+      populationSize: generateScheduleDto.config?.populationSize || 1000,
       crossoverRate: generateScheduleDto.config?.crossoverRate || 0.7,
       mutationRate: generateScheduleDto.config?.mutationRate || 0.1,
       generations: generateScheduleDto.config?.generations || 100,

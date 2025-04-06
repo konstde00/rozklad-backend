@@ -1,6 +1,6 @@
+// geneticAlgorithm.ts
 
 import { DayOfWeek, LessonType } from '@prisma/client';
-
 import { WeeklySchedule } from './types';
 import { calculateFitness } from './fitnessFunction';
 import {
@@ -8,7 +8,7 @@ import {
   generateRandomWeeklySchedule,
 } from './scheduleGenerator';
 import { DataService, GeneticAlgorithmConfig } from '../interfaces';
-import { TIME_SLOTS } from '../timeSlots';
+import { PAIR_SLOTS } from '../timeSlots';
 import { WeeklyEvent } from './types';
 
 export async function runGeneticAlgorithm(
@@ -18,7 +18,7 @@ export async function runGeneticAlgorithm(
 ) {
   let population: WeeklySchedule[] = [];
 
-  let semester = data.semesters.find((s) => s.id === semesterId);
+  const semester = data.semesters.find((s) => s.id === semesterId);
   if (!semester) {
     throw new Error(`Semester with id ${semesterId} not found`);
   }
@@ -28,6 +28,7 @@ export async function runGeneticAlgorithm(
     semester.end_date,
   );
 
+  // Generate initial population
   while (population.length < config.populationSize) {
     const individual = generateRandomWeeklySchedule(data);
     const conflicts = checkHardConstraints(individual.events, data);
@@ -38,13 +39,13 @@ export async function runGeneticAlgorithm(
     population.push(individual);
   }
 
+  // Evolve
   for (let generation = 0; generation < config.generations; generation++) {
     population = selection(population);
-
     population = crossover(population, config.crossoverRate, data);
-
     population = mutation(population, config.mutationRate, data);
 
+    // Repair after crossover/mutation
     population = population.map((individual) => {
       const conflicts = checkHardConstraints(individual.events, data);
       if (conflicts.length > 0) {
@@ -53,6 +54,7 @@ export async function runGeneticAlgorithm(
       return individual;
     });
 
+    // Recompute fitness
     population.forEach((individual) => {
       individual.fitness = calculateFitness(individual, data, semesterWeeks);
     });
@@ -63,57 +65,103 @@ export async function runGeneticAlgorithm(
     console.log(`Generation ${generation}: Best Fitness = ${bestFitness}`);
   }
 
+  // Return the best from final population
   return population.reduce((prev, current) =>
-    (prev.fitness ?? Number.NEGATIVE_INFINITY) > (current.fitness ?? Number.NEGATIVE_INFINITY)
+    (prev.fitness ?? Number.NEGATIVE_INFINITY) >
+    (current.fitness ?? Number.NEGATIVE_INFINITY)
       ? prev
       : current,
   );
 }
 
-// Ensure no teacher, group, or classroom is double-booked
-// Ensure classroom capacity is sufficient
-// Ensure teacher qualifications
-// Returns an array of conflicting events, or an empty array if there are no conflicts
+/**
+ * Check “hard” constraints:
+ *   - No teacher double-booked
+ *   - No group double-booked
+ *   - No classroom double-booked
+ *   - Classroom capacity
+ *   - Teacher qualification
+ *   - No more than 4 pairs per day for teacher, group, or classroom
+ * Returns a list of conflicting events that violate constraints.
+ */
 function checkHardConstraints(
   events: WeeklyEvent[],
   data: DataService,
 ): WeeklyEvent[] {
-  const eventMap = new Map<string, WeeklyEvent>();
   const conflicts: WeeklyEvent[] = [];
 
+  // For checking “already used” pair in a day:
+  const teacherDayCount = new Map<string, number>();    // key = teacherId-dayOfWeek => # of pairs
+  const groupDayCount = new Map<string, number>();      // key = groupId-dayOfWeek => # of pairs
+  const classroomDayCount = new Map<string, number>();  // key = classroomId-dayOfWeek => # of pairs
+
+  // For checking collisions in the same pair slot
+  const usedTeacherSlot = new Map<string, boolean>();   // teacherId-dayOfWeek-pairIndex
+  const usedGroupSlot = new Map<string, boolean>();     // groupId-dayOfWeek-pairIndex
+  const usedClassroomSlot = new Map<string, boolean>(); // classroomId-dayOfWeek-pairIndex
+
   for (const event of events) {
-    const key = `${event.dayOfWeek}-${event.timeSlot}`;
+    const { dayOfWeek, timeSlot, teacherId, groupId, classroomId } = event;
 
-    // Check for teacher availability
-    const teacherKey = `teacher-${event.teacherId}-${key}`;
-    if (eventMap.has(teacherKey)) {
+    const dayKeyTeacher = `${teacherId}-${dayOfWeek}`;
+    const dayKeyGroup = `${groupId}-${dayOfWeek}`;
+    const dayKeyClassroom = `${classroomId}-${dayOfWeek}`;
+
+    // 1) Check 4 pairs/day limit for teacher
+    teacherDayCount.set(
+      dayKeyTeacher,
+      (teacherDayCount.get(dayKeyTeacher) || 0) + 1
+    );
+    if (teacherDayCount.get(dayKeyTeacher)! > 4) {
       conflicts.push(event);
       continue;
     }
 
-    // Check for group availability
-    const groupKey = `group-${event.groupId}-${key}`;
-    if (eventMap.has(groupKey)) {
+    // 2) Check 4 pairs/day limit for group
+    groupDayCount.set(
+      dayKeyGroup,
+      (groupDayCount.get(dayKeyGroup) || 0) + 1
+    );
+    if (groupDayCount.get(dayKeyGroup)! > 4) {
       conflicts.push(event);
       continue;
     }
 
-    // Check for classroom availability
-    const classroomKey = `classroom-${event.classroomId}-${key}`;
-    if (eventMap.has(classroomKey)) {
+    // 3) Check 4 pairs/day limit for classroom
+    classroomDayCount.set(
+      dayKeyClassroom,
+      (classroomDayCount.get(dayKeyClassroom) || 0) + 1
+    );
+    if (classroomDayCount.get(dayKeyClassroom)! > 4) {
       conflicts.push(event);
       continue;
     }
 
-    // Check classroom capacity
-    const group = data.studentGroups.find((g) => g.id === event.groupId);
-    const classroom = data.classrooms.find((c) => c.id === event.classroomId);
-    if (classroom && group && classroom.capacity < group.students_count) {
+    // 4) Check collisions in the same pair slot
+    const tKey = `T-${teacherId}-${dayOfWeek}-${timeSlot}`;
+    const gKey = `G-${groupId}-${dayOfWeek}-${timeSlot}`;
+    const cKey = `C-${classroomId}-${dayOfWeek}-${timeSlot}`;
+
+    if (usedTeacherSlot.has(tKey) || usedGroupSlot.has(gKey) || usedClassroomSlot.has(cKey)) {
+      // conflict
       conflicts.push(event);
       continue;
     }
 
-    // Check teacher qualification using teachingAssignments
+    // Mark them used
+    usedTeacherSlot.set(tKey, true);
+    usedGroupSlot.set(gKey, true);
+    usedClassroomSlot.set(cKey, true);
+
+    // 5) Check capacity
+    const group = data.studentGroups.find((g) => g.id === groupId);
+    const classroom = data.classrooms.find((c) => c.id === classroomId);
+    if (group && classroom && classroom.capacity < group.students_count) {
+      conflicts.push(event);
+      continue;
+    }
+
+    // 6) Check teacher qualification
     const assignmentExists = data.teachingAssignments.some(
       (ta) =>
         ta.teacher_id === event.teacherId &&
@@ -124,16 +172,10 @@ function checkHardConstraints(
           (ta.lab_hours_per_semester > 0 && event.lessonType === 'lab') ||
           (ta.seminar_hours_per_semester > 0 && event.lessonType === 'seminar')),
     );
-
     if (!assignmentExists) {
       conflicts.push(event);
       continue;
     }
-
-    // No conflicts detected; mark entities as booked
-    eventMap.set(teacherKey, event);
-    eventMap.set(groupKey, event);
-    eventMap.set(classroomKey, event);
   }
 
   return conflicts;
@@ -144,8 +186,8 @@ function addLesson(
   data: DataService,
   weekdays: DayOfWeek[],
 ): void {
-  // Select a random teaching assignment
   if (data.teachingAssignments.length === 0) return;
+
   const assignment =
     data.teachingAssignments[
       Math.floor(Math.random() * data.teachingAssignments.length)
@@ -160,64 +202,44 @@ function addLesson(
   const teacher = data.teachers.find((t) => t.id === assignment.teacher_id);
   if (!teacher) return;
 
-  // Determine the lesson types that have remaining hours
+  // Determine possible lesson types
   const lessonTypes: LessonType[] = [];
   if (assignment.lecture_hours_per_semester > 0) lessonTypes.push('lecture');
   if (assignment.practice_hours_per_semester > 0) lessonTypes.push('practice');
   if (assignment.lab_hours_per_semester > 0) lessonTypes.push('lab');
   if (assignment.seminar_hours_per_semester > 0) lessonTypes.push('seminar');
-
   if (lessonTypes.length === 0) return;
 
-  // Randomly select a lesson type
   const lessonType = lessonTypes[Math.floor(Math.random() * lessonTypes.length)];
 
-  // Get suitable classrooms
+  // Pick a suitable classroom
   const suitableClassrooms = data.classrooms.filter(
     (c) => c.capacity >= group.students_count,
   );
   if (suitableClassrooms.length === 0) return;
   const classroom =
-    suitableClassrooms[
-      Math.floor(Math.random() * suitableClassrooms.length)
-      ];
+    suitableClassrooms[Math.floor(Math.random() * suitableClassrooms.length)];
 
-  // Find a random day and time slot
+  // Pick a random day from Mon-Fri
   const dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
-  const timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
+  // Pick a random pair index 0..3
+  const pairIndex = Math.floor(Math.random() * PAIR_SLOTS.length);
 
-  // Check for conflicts
-  const key = `${dayOfWeek}-${timeSlot}`;
-  const teacherKey = `teacher-${teacher.id}-${key}`;
-  const groupKey = `group-${group.id}-${key}`;
-  const classroomKey = `classroom-${classroom.id}-${key}`;
+  // Create a potential event
+  const newEvent: WeeklyEvent = {
+    title: subject.name,
+    dayOfWeek,
+    timeSlot: pairIndex,
+    groupId: group.id,
+    teacherId: teacher.id,
+    subjectId: subject.id,
+    classroomId: classroom.id,
+    lessonType,
+  };
 
-  const eventMap = new Map<string, WeeklyEvent>();
-  events.forEach((e) => {
-    const k = `${e.dayOfWeek}-${e.timeSlot}`;
-    eventMap.set(`teacher-${e.teacherId}-${k}`, e);
-    eventMap.set(`group-${e.groupId}-${k}`, e);
-    eventMap.set(`classroom-${e.classroomId}-${k}`, e);
-  });
-
-  if (
-    !eventMap.has(teacherKey) &&
-    !eventMap.has(groupKey) &&
-    !eventMap.has(classroomKey)
-  ) {
-    // Add a new event
-    const newEvent: WeeklyEvent = {
-      title: subject.name,
-      dayOfWeek: dayOfWeek,
-      timeSlot: timeSlot,
-      groupId: group.id,
-      teacherId: teacher.id,
-      subjectId: subject.id,
-      classroomId: classroom.id,
-      lessonType: lessonType,
-    };
-    events.push(newEvent);
-  }
+  // We rely on checkHardConstraints for collision detection.
+  // But you can do a quick check here if desired. For simplicity, just push it:
+  events.push(newEvent);
 }
 
 function selection(population: WeeklySchedule[]): WeeklySchedule[] {
@@ -253,7 +275,6 @@ function crossover(
         parent2.events,
         data,
       );
-
       newPopulation.push({ events: child1Events });
       newPopulation.push({ events: child2Events });
     } else {
@@ -281,7 +302,6 @@ function mutation(
 
   return population.map((individual) => {
     if (Math.random() < mutationRate) {
-
       let events = [...individual.events];
 
       const mutationChoice = Math.floor(Math.random() * 5);
@@ -289,58 +309,63 @@ function mutation(
       switch (mutationChoice) {
         case 0:
           // Change day_of_week of a random event to a random weekday
-          if (events.length === 0) break;
-          const eventIndex = Math.floor(Math.random() * events.length);
-          const event = { ...events[eventIndex] }; // Clone event
-          event.dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
-          events[eventIndex] = event;
+          if (events.length > 0) {
+            const eventIndex = Math.floor(Math.random() * events.length);
+            const ev = { ...events[eventIndex] };
+            ev.dayOfWeek = weekdays[Math.floor(Math.random() * weekdays.length)];
+            events[eventIndex] = ev;
+          }
           break;
 
         case 1:
-          // Change time slot of a random event
-          if (events.length === 0) break;
-          const eventIndex1 = Math.floor(Math.random() * events.length);
-          const event1 = { ...events[eventIndex1] }; // Clone event
-          event1.timeSlot = Math.floor(Math.random() * TIME_SLOTS.length);
-          events[eventIndex1] = event1;
+          // Change pair index (timeSlot) of a random event
+          if (events.length > 0) {
+            const eventIndex1 = Math.floor(Math.random() * events.length);
+            const ev1 = { ...events[eventIndex1] };
+            ev1.timeSlot = Math.floor(Math.random() * PAIR_SLOTS.length);
+            events[eventIndex1] = ev1;
+          }
           break;
 
         case 2:
           // Swap events between two subjects within the same group
-          if (events.length < 2) break;
-          const eventIndex2 = Math.floor(Math.random() * events.length);
-          const event2 = { ...events[eventIndex2] };
-          const swapEventIndex = Math.floor(Math.random() * events.length);
-          const swapEvent = { ...events[swapEventIndex] };
-          if (event2.groupId === swapEvent.groupId && eventIndex2 !== swapEventIndex) {
-            // Swap timeSlot and dayOfWeek
-            [event2.timeSlot, swapEvent.timeSlot] = [swapEvent.timeSlot, event2.timeSlot];
-            [event2.dayOfWeek, swapEvent.dayOfWeek] = [swapEvent.dayOfWeek, event2.dayOfWeek];
-            events[eventIndex2] = event2;
-            events[swapEventIndex] = swapEvent;
+          if (events.length > 1) {
+            const eIndex1 = Math.floor(Math.random() * events.length);
+            const eIndex2 = Math.floor(Math.random() * events.length);
+            if (eIndex1 !== eIndex2) {
+              const evA = { ...events[eIndex1] };
+              const evB = { ...events[eIndex2] };
+              if (evA.groupId === evB.groupId) {
+                // Swap dayOfWeek/timeSlot
+                [evA.dayOfWeek, evB.dayOfWeek] = [evB.dayOfWeek, evA.dayOfWeek];
+                [evA.timeSlot, evB.timeSlot] = [evB.timeSlot, evA.timeSlot];
+                events[eIndex1] = evA;
+                events[eIndex2] = evB;
+              }
+            }
           }
           break;
 
         case 3:
+          // Add a new lesson
           addLesson(events, data, weekdays);
           break;
 
         case 4:
-          if (events.length === 0) break;
-          const eventIndexToDelete = Math.floor(Math.random() * events.length);
-          events.splice(eventIndexToDelete, 1);
+          // Delete a random event
+          if (events.length > 0) {
+            const eventIndexToDelete = Math.floor(Math.random() * events.length);
+            events.splice(eventIndexToDelete, 1);
+          }
           break;
       }
 
       individual.events = events;
-
-      // After mutation, enforce hard constraints
+      // Repair after mutation
       const conflicts = checkHardConstraints(individual.events, data);
       if (conflicts.length > 0) {
-        // Repair the schedule
         individual.events = repairSchedule(individual.events, data);
       }
-
       return individual;
     } else {
       return individual;
@@ -355,14 +380,8 @@ function performConstraintPreservingCrossover(
 ): [WeeklyEvent[], WeeklyEvent[]] {
   const crossoverPoint = Math.floor(Math.random() * events1.length);
 
-  const child1Events = [
-    ...events1.slice(0, crossoverPoint),
-    ...events2.slice(crossoverPoint),
-  ];
-  const child2Events = [
-    ...events2.slice(0, crossoverPoint),
-    ...events1.slice(crossoverPoint),
-  ];
+  const child1Events = [...events1.slice(0, crossoverPoint), ...events2.slice(crossoverPoint)];
+  const child2Events = [...events2.slice(0, crossoverPoint), ...events1.slice(crossoverPoint)];
 
   const repairedChild1Events = repairSchedule(child1Events, data);
   const repairedChild2Events = repairSchedule(child2Events, data);
@@ -375,129 +394,55 @@ function repairSchedule(
   data: DataService,
 ): WeeklyEvent[] {
   const repairedEvents: WeeklyEvent[] = [];
-  const eventMap = new Map<string, WeeklyEvent>();
-  const conflicts = checkHardConstraints(events, data);
+  const allConflicts = checkHardConstraints(events, data);
 
-  for (const event of events) {
-    if (!conflicts.includes(event)) {
-      const key = `${event.dayOfWeek}-${event.timeSlot}`;
-      const teacherKey = `teacher-${event.teacherId}-${key}`;
-      const groupKey = `group-${event.groupId}-${key}`;
-      const classroomKey = `classroom-${event.classroomId}-${key}`;
+  // We separate out the conflicting ones
+  const conflictSet = new Set<WeeklyEvent>(allConflicts);
 
-      eventMap.set(teacherKey, event);
-      eventMap.set(groupKey, event);
-      eventMap.set(classroomKey, event);
-
-      repairedEvents.push(event);
+  // Keep the non-conflicting events as is
+  for (const ev of events) {
+    if (!conflictSet.has(ev)) {
+      repairedEvents.push(ev);
     }
   }
 
-  for (const conflictEvent of conflicts) {
-    const rescheduledEvent = findAlternativeEventForRepair(
-      conflictEvent,
-      eventMap,
-      data,
-    );
-    if (rescheduledEvent) {
-      const key = `${rescheduledEvent.dayOfWeek}-${rescheduledEvent.timeSlot}`;
-      const teacherKey = `teacher-${rescheduledEvent.teacherId}-${key}`;
-      const groupKey = `group-${rescheduledEvent.groupId}-${key}`;
-      const classroomKey = `classroom-${rescheduledEvent.classroomId}-${key}`;
-
-      eventMap.set(teacherKey, rescheduledEvent);
-      eventMap.set(groupKey, rescheduledEvent);
-      eventMap.set(classroomKey, rescheduledEvent);
-
-      repairedEvents.push(rescheduledEvent);
+  // Attempt to “reschedule” conflicting events
+  for (const conflictEvent of conflictSet) {
+    const alternative = findAlternativeEventForRepair(conflictEvent, repairedEvents, data);
+    if (alternative) {
+      repairedEvents.push(alternative);
     } else {
-      console.log(
-        `Unable to reschedule event: ${JSON.stringify(conflictEvent.title)}`,
-      );
+      // If no alternative found, we just skip it
+      // (Alternatively, we could keep searching for more solutions.)
+      // console.log(`Unable to reschedule event: ${JSON.stringify(conflictEvent)}`);
     }
   }
-
   return repairedEvents;
 }
 
 function findAlternativeEventForRepair(
   event: WeeklyEvent,
-  eventMap: Map<string, WeeklyEvent>,
+  existingEvents: WeeklyEvent[],
   data: DataService,
 ): WeeklyEvent | null {
-  const daysOfWeek = [
+  const weekdays: DayOfWeek[] = [
     'Monday',
     'Tuesday',
     'Wednesday',
     'Thursday',
     'Friday',
-  ] as DayOfWeek[];
+  ];
 
-  for (const dayOfWeek of daysOfWeek) {
-    for (
-      let timeSlotIndex = 0;
-      timeSlotIndex < TIME_SLOTS.length;
-      timeSlotIndex++
-    ) {
-      const key = `${dayOfWeek}-${timeSlotIndex}`;
-      const teacherKey = `teacher-${event.teacherId}-${key}`;
-      const groupKey = `group-${event.groupId}-${key}`;
-      const classroomKey = `classroom-${event.classroomId}-${key}`;
-
-      // Check if time slot is available for teacher, group, and classroom
-      if (
-        !eventMap.has(teacherKey) &&
-        !eventMap.has(groupKey) &&
-        !eventMap.has(classroomKey)
-      ) {
-        // Check classroom capacity
-        const group = data.studentGroups.find((g) => g.id === event.groupId);
-        const classroom = data.classrooms.find(
-          (c) => c.id === event.classroomId,
-        );
-        if (classroom && group && classroom.capacity >= group.students_count) {
-          // Found an available time slot
-          return { ...event, dayOfWeek, timeSlot: timeSlotIndex };
-        }
+  // Try all dayOfWeek x pairIndex combos
+  for (const dayOfWeek of weekdays) {
+    for (let i = 0; i < PAIR_SLOTS.length; i++) {
+      const candidate: WeeklyEvent = { ...event, dayOfWeek, timeSlot: i };
+      const testArr = [...existingEvents, candidate];
+      const conflicts = checkHardConstraints(testArr, data);
+      if (conflicts.length === 0) {
+        return candidate; // found a valid re-slot
       }
     }
   }
-
-  // If no alternative time slot is found with the same classroom, try with other classrooms
-  const suitableClassrooms = data.classrooms.filter(
-    (c) =>
-      c.capacity >=
-      data.studentGroups.find((g) => g.id === event.groupId)?.students_count!,
-  );
-
-  for (const classroom of suitableClassrooms) {
-    for (const dayOfWeek of daysOfWeek) {
-      for (
-        let timeSlotIndex = 0;
-        timeSlotIndex < TIME_SLOTS.length;
-        timeSlotIndex++
-      ) {
-        const key = `${dayOfWeek}-${timeSlotIndex}`;
-        const teacherKey = `teacher-${event.teacherId}-${key}`;
-        const groupKey = `group-${event.groupId}-${key}`;
-        const classroomKey = `classroom-${classroom.id}-${key}`;
-
-        if (
-          !eventMap.has(teacherKey) &&
-          !eventMap.has(groupKey) &&
-          !eventMap.has(classroomKey)
-        ) {
-          // Found an available time slot with a different classroom
-          return {
-            ...event,
-            dayOfWeek,
-            timeSlot: timeSlotIndex,
-            classroomId: classroom.id,
-          };
-        }
-      }
-    }
-  }
-
-  return null; // No alternative found
+  return null;
 }

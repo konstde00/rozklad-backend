@@ -1,3 +1,4 @@
+// fitnessFunction.ts
 
 import { WeeklySchedule, WeeklyEvent } from './types';
 import { DayOfWeek, LessonType } from '@prisma/client';
@@ -37,8 +38,10 @@ function calculateHoursMismatchPenalty(
   const groupSubjectLessonTypeHours = new Map<string, number>();
 
   events.forEach((event) => {
+    // If each pair is 2 academic hours, set this to 2.
+    // If you prefer 1 “unit”, keep it as 1.
+    const hours = 2; // each scheduled pair counts as 2 hours
     const key = `${event.groupId}-${event.subjectId}-${event.lessonType}`;
-    const hours = 1; // Each event is 1 hour
 
     if (groupSubjectLessonTypeHours.has(key)) {
       groupSubjectLessonTypeHours.set(
@@ -59,21 +62,24 @@ function calculateHoursMismatchPenalty(
     const lessonType = lessonTypeStr as LessonType;
 
     const assignment = data.teachingAssignments.find(
-      (ta) =>
-        ta.group_id === groupId && ta.subject_id === subjectId,
+      (ta) => ta.group_id === groupId && ta.subject_id === subjectId,
     );
-
     if (!assignment) return;
 
     let requiredHours = 0;
-    if (lessonType === 'lecture') {
-      requiredHours = assignment.lecture_hours_per_semester;
-    } else if (lessonType === 'practice') {
-      requiredHours = assignment.practice_hours_per_semester;
-    } else if (lessonType === 'lab') {
-      requiredHours = assignment.lab_hours_per_semester;
-    } else if (lessonType === 'seminar') {
-      requiredHours = assignment.seminar_hours_per_semester;
+    switch (lessonType) {
+      case 'lecture':
+        requiredHours = assignment.lecture_hours_per_semester;
+        break;
+      case 'practice':
+        requiredHours = assignment.practice_hours_per_semester;
+        break;
+      case 'lab':
+        requiredHours = assignment.lab_hours_per_semester;
+        break;
+      case 'seminar':
+        requiredHours = assignment.seminar_hours_per_semester;
+        break;
     }
 
     penalty += Math.abs(totalScheduledHours - requiredHours);
@@ -90,8 +96,10 @@ function calculateTeacherHoursPenalty(
   const teacherWeeklyHours = new Map<number, number>();
 
   events.forEach((event) => {
+    // If each pair is 2 academic hours, set this to 2.
+    // If you prefer 1 “unit”, keep it as 1.
+    const hours = 2;
     const teacherId = event.teacherId;
-    const hours = 1;
 
     if (teacherWeeklyHours.has(teacherId)) {
       teacherWeeklyHours.set(
@@ -118,13 +126,17 @@ function calculateTeacherHoursPenalty(
   return penalty;
 }
 
+/**
+ * Gaps are computed basically on pair indices. If we treat them as
+ * 0,1,2,3, then a gap between 0 and 2 is 1 "slot" gap.
+ */
 function countTeacherGaps(events: WeeklyEvent[]): number {
   let totalGaps = 0;
 
   const teacherSchedules = new Map<number, Map<DayOfWeek, number[]>>();
 
   events.forEach((event) => {
-    const { teacherId, dayOfWeek, timeSlot } = event;
+    const { teacherId, dayOfWeek, timeSlot } = event; // timeSlot = pair index
 
     if (!teacherSchedules.has(teacherId)) {
       teacherSchedules.set(teacherId, new Map());
@@ -142,8 +154,9 @@ function countTeacherGaps(events: WeeklyEvent[]): number {
   teacherSchedules.forEach((daySchedules) => {
     daySchedules.forEach((timeSlots) => {
       const sortedSlots = timeSlots.sort((a, b) => a - b);
-
       for (let i = 1; i < sortedSlots.length; i++) {
+        // A gap is the difference minus 1
+        // e.g. pairs 0..1 => no gap. 0..2 => gap of 1.
         const gap = sortedSlots[i] - sortedSlots[i - 1] - 1;
         if (gap > 0) {
           totalGaps += gap;
@@ -163,11 +176,11 @@ function countGroupGaps(events: WeeklyEvent[]): number {
   events.forEach((event) => {
     const { groupId, dayOfWeek, timeSlot } = event;
 
-    if (!groupSchedules.has(groupId as unknown as number)) {
-      groupSchedules.set(groupId as unknown as number, new Map());
+    if (!groupSchedules.has(groupId)) {
+      groupSchedules.set(groupId, new Map());
     }
 
-    const daySchedule = groupSchedules.get(groupId as unknown as number)!;
+    const daySchedule = groupSchedules.get(groupId)!;
 
     if (!daySchedule.has(dayOfWeek)) {
       daySchedule.set(dayOfWeek, []);
@@ -179,7 +192,6 @@ function countGroupGaps(events: WeeklyEvent[]): number {
   groupSchedules.forEach((daySchedules) => {
     daySchedules.forEach((timeSlots) => {
       const sortedSlots = timeSlots.sort((a, b) => a - b);
-
       for (let i = 1; i < sortedSlots.length; i++) {
         const gap = sortedSlots[i] - sortedSlots[i - 1] - 1;
         if (gap > 0) {
