@@ -1,5 +1,7 @@
 // types.ts
 
+// types.ts
+
 import { DayOfWeek, LessonType } from '@prisma/client';
 
 export type WeeklySchedule = {

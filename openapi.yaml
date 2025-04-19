@@ -540,6 +540,130 @@ components:
         start_date: '2025-01-20'
         end_date: '2025-05-20'
 
+    TeacherPreference:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier for the teacher preference
+        teacherId:
+          type: integer
+          description: ID of the teacher
+        dayOfWeek:
+          type: string
+          enum:
+            - Monday
+            - Tuesday
+            - Wednesday
+            - Thursday
+            - Friday
+            - Saturday
+            - Sunday
+          description: Day of the week for the preference
+        timeSlotIndex:
+          type: integer
+          description: Index of the time slot (0-7)
+          minimum: 0
+          maximum: 7
+        preference:
+          type: string
+          enum:
+            - REQUIRED_FREE
+            - PREFERRED_FREE
+            - PREFERRED_BUSY
+            - NEUTRAL
+          description: Type of preference
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the preference was created
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the preference was last updated
+      example:
+        id: 1
+        teacherId: 10
+        dayOfWeek: 'Monday'
+        timeSlotIndex: 0
+        preference: 'REQUIRED_FREE'
+        created_at: '2024-10-26T12:34:56.789Z'
+        updated_at: '2024-10-26T12:34:56.789Z'
+
+    CreateTeacherPreference:
+      type: object
+      required:
+        - teacherId
+        - dayOfWeek
+        - timeSlotIndex
+        - preference
+      properties:
+        teacherId:
+          type: integer
+          description: ID of the teacher
+        dayOfWeek:
+          type: string
+          enum:
+            - Monday
+            - Tuesday
+            - Wednesday
+            - Thursday
+            - Friday
+            - Saturday
+            - Sunday
+          description: Day of the week for the preference
+        timeSlotIndex:
+          type: integer
+          description: Index of the time slot (0-7)
+          minimum: 0
+          maximum: 7
+        preference:
+          type: string
+          enum:
+            - REQUIRED_FREE
+            - PREFERRED_FREE
+            - PREFERRED_BUSY
+            - NEUTRAL
+          description: Type of preference
+      example:
+        teacherId: 10
+        dayOfWeek: 'Monday'
+        timeSlotIndex: 0
+        preference: 'REQUIRED_FREE'
+
+    UpdateTeacherPreference:
+      type: object
+      properties:
+        dayOfWeek:
+          type: string
+          enum:
+            - Monday
+            - Tuesday
+            - Wednesday
+            - Thursday
+            - Friday
+            - Saturday
+            - Sunday
+          description: Day of the week for the preference
+        timeSlotIndex:
+          type: integer
+          description: Index of the time slot (0-7)
+          minimum: 0
+          maximum: 7
+        preference:
+          type: string
+          enum:
+            - REQUIRED_FREE
+            - PREFERRED_FREE
+            - PREFERRED_BUSY
+            - NEUTRAL
+          description: Type of preference
+      example:
+        dayOfWeek: 'Tuesday'
+        timeSlotIndex: 1
+        preference: 'PREFERRED_FREE'
+
   responses:
     UnauthorizedError:
       description: Access token is missing or invalid
@@ -579,6 +703,142 @@ security:
   - BearerAuth: []
 
 paths:
+
+  /v1/teacher-preferences:
+    post:
+      tags:
+        - Teacher Preferences
+      summary: Create a new teacher preference
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeacherPreference'
+      responses:
+        '201':
+          description: Teacher preference created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherPreference'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/teacher-preferences/teacher/{teacherId}:
+      get:
+        tags:
+          - Teacher Preferences
+        summary: Get all teacher preferences for a specific teacher
+        security:
+          - BearerAuth: [ ]
+        parameters:
+          - name: teacherId
+            in: path
+            required: true
+            schema:
+              type: integer
+              format: int64
+            description: ID of the teacher
+        responses:
+          '200':
+            description: List of teacher preferences for the teacher
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TeacherPreference'
+          '401':
+            $ref: '#/components/responses/UnauthorizedError'
+          '404':
+            $ref: '#/components/responses/NotFoundError'
+
+  /v1/teacher-preferences/{id}:
+      get:
+        tags:
+          - Teacher Preferences
+        summary: Get a teacher preference by its ID
+        security:
+          - BearerAuth: [ ]
+        parameters:
+          - name: id
+            in: path
+            required: true
+            schema:
+              type: integer
+              format: int64
+            description: ID of the teacher preference
+        responses:
+          '200':
+            description: Teacher preference details
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeacherPreference'
+          '401':
+            $ref: '#/components/responses/UnauthorizedError'
+          '404':
+            $ref: '#/components/responses/NotFoundError'
+      put:
+        tags:
+          - Teacher Preferences
+        summary: Update a teacher preference by ID
+        security:
+          - BearerAuth: [ ]
+        parameters:
+          - name: id
+            in: path
+            required: true
+            schema:
+              type: integer
+              format: int64
+            description: ID of the teacher preference to update
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateTeacherPreference'
+        responses:
+          '200':
+            description: Teacher preference updated successfully
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeacherPreference'
+          '400':
+            $ref: '#/components/responses/BadRequestError'
+          '401':
+            $ref: '#/components/responses/UnauthorizedError'
+          '404':
+            $ref: '#/components/responses/NotFoundError'
+      delete:
+        tags:
+          - Teacher Preferences
+        summary: Delete a teacher preference by ID
+        security:
+          - BearerAuth: [ ]
+        parameters:
+          - name: id
+            in: path
+            required: true
+            schema:
+              type: integer
+              format: int64
+            description: ID of the teacher preference to delete
+        responses:
+          '204':
+            description: Teacher preference deleted successfully
+          '401':
+            $ref: '#/components/responses/UnauthorizedError'
+          '404':
+            $ref: '#/components/responses/NotFoundError'
+
   /v1/users/register:
     post:
       tags:

@@ -1,5 +1,7 @@
 // scheduleGenerator.ts
 
+// scheduleGenerator.ts
+
 import { WeeklyEvent, WeeklySchedule } from './types';
 import { PAIR_SLOTS } from '../timeSlots'; // use pairs now
 import { DataService } from '../interfaces';

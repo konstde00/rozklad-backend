@@ -1,3 +1,4 @@
+import { DayOfWeek, PreferenceType } from '@prisma/client';
 
 // interfaces.ts
 
@@ -8,6 +9,14 @@ export interface GeneticAlgorithmConfig {
   generations: number;
 }
 
+export type TeacherPreference = {
+  id: number;
+  teacher_id: number;
+  day_of_week: DayOfWeek;
+  time_slot_index: number;
+  preference: PreferenceType;
+};
+
 export interface DataService {
   semesters: any[];
   studentGroups: any[];
@@ -16,4 +25,6 @@ export interface DataService {
   classrooms: any[];
   teachingAssignments: any[];
   timeSlots: any[];
+
+  teacherPreferences: TeacherPreference[];
 }

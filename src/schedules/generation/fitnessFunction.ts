@@ -1,7 +1,9 @@
 // fitnessFunction.ts
 
+// fitnessFunction.ts
+
 import { WeeklySchedule, WeeklyEvent } from './types';
-import { DayOfWeek, LessonType } from '@prisma/client';
+import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
 import { DataService } from '../interfaces';
 
 export function calculateFitness(
@@ -26,7 +28,61 @@ export function calculateFitness(
   const teacherHoursPenalty = calculateTeacherHoursPenalty(schedule.events, data);
   fitness -= teacherHoursPenalty * 20;
 
+  const preferencePenalty = calculatePreferencePenalty(schedule.events, data);
+  fitness -= preferencePenalty;
+
   return fitness;
+}
+
+
+/**
+ * For each teacher’s preference:
+ *   - If PREFERRED_FREE & an event is found => penalty
+ *   - If PREFERRED_BUSY & no event is found => penalty
+ */
+function calculatePreferencePenalty(
+  events: WeeklyEvent[],
+  data: DataService
+): number {
+  let penalty = 0;
+
+  // Build an index by teacher -> dayOfWeek -> timeSlot -> isScheduled
+  const scheduleMap = new Map<number, Map<DayOfWeek, Set<number>>>();
+
+  // Fill out actual usage
+  for (const ev of events) {
+    if (!scheduleMap.has(ev.teacherId)) {
+      scheduleMap.set(ev.teacherId, new Map());
+    }
+    const dayMap = scheduleMap.get(ev.teacherId)!;
+    if (!dayMap.has(ev.dayOfWeek)) {
+      dayMap.set(ev.dayOfWeek, new Set());
+    }
+    dayMap.get(ev.dayOfWeek)!.add(ev.timeSlot);
+  }
+
+  // Evaluate each preference that is PREFERRED_FREE or PREFERRED_BUSY
+  for (const pref of data.teacherPreferences) {
+    const tId = pref.teacher_id;
+    // skip NEUTRAL or REQUIRED_FREE (the latter is handled as hard constraint)
+    if (pref.preference === PreferenceType.NEUTRAL || pref.preference === PreferenceType.REQUIRED_FREE) {
+      continue;
+    }
+
+    const daySet =
+      scheduleMap.get(tId)?.get(pref.day_of_week) ?? new Set<number>();
+    const isScheduledHere = daySet.has(pref.time_slot_index);
+
+    if (pref.preference === PreferenceType.PREFERRED_FREE && isScheduledHere) {
+      // Penalize if teacher wanted free but we scheduled a class
+      penalty += 2; // or any penalty weight you like
+    } else if (pref.preference === PreferenceType.PREFERRED_BUSY && !isScheduledHere) {
+      // Penalize if teacher wanted to have a class but none scheduled
+      penalty += 1; // or any penalty weight you like
+    }
+  }
+
+  return penalty;
 }
 
 function calculateHoursMismatchPenalty(

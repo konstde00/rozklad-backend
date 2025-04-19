@@ -1,6 +1,7 @@
 // geneticAlgorithm.ts
 
-import { DayOfWeek, LessonType } from '@prisma/client';
+import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
+
 import { WeeklySchedule } from './types';
 import { calculateFitness } from './fitnessFunction';
 import {
@@ -89,6 +90,7 @@ function checkHardConstraints(
   data: DataService,
 ): WeeklyEvent[] {
   const conflicts: WeeklyEvent[] = [];
+  const eventMap = new Map<string, WeeklyEvent>();
 
   // For checking “already used” pair in a day:
   const teacherDayCount = new Map<string, number>();    // key = teacherId-dayOfWeek => # of pairs
@@ -101,6 +103,32 @@ function checkHardConstraints(
   const usedClassroomSlot = new Map<string, boolean>(); // classroomId-dayOfWeek-pairIndex
 
   for (const event of events) {
+    // Build a day/time key
+    const key = `${event.dayOfWeek}-${event.timeSlot}`;
+
+    // 1) Check teacher's REQUIRED_FREE
+    const teacherPrefs = data.teacherPreferences.filter(
+      (p) => p.teacher_id === event.teacherId
+    );
+    // If any preference for (event.dayOfWeek + event.timeSlot) is REQUIRED_FREE,
+    // that means the teacher is effectively "unavailable."
+    const hasRequiredFree = teacherPrefs.some(
+      (p) =>
+        p.day_of_week === event.dayOfWeek &&
+        p.time_slot_index === event.timeSlot &&
+        p.preference === PreferenceType.REQUIRED_FREE
+    );
+    if (hasRequiredFree) {
+      // This is a conflict, teacher is not allowed to have a class here
+      conflicts.push(event);
+      continue;
+    }
+
+    const teacherKey = `teacher-${event.teacherId}-${key}`;
+    if (eventMap.has(teacherKey)) {
+      conflicts.push(event);
+      continue;
+    }
     const { dayOfWeek, timeSlot, teacherId, groupId, classroomId } = event;
 
     const dayKeyTeacher = `${teacherId}-${dayOfWeek}`;
@@ -116,6 +144,7 @@ function checkHardConstraints(
       conflicts.push(event);
       continue;
     }
+      
 
     // 2) Check 4 pairs/day limit for group
     groupDayCount.set(

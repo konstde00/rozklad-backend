@@ -13,6 +13,7 @@ export async function getInitialData() {
   const teachers = await prisma.teacher.findMany();
   const classrooms = await prisma.classroom.findMany();
   const teachingAssignments = await prisma.teachingAssignment.findMany();
+  const teacherPreferences = await prisma.teacherPreference.findMany();
   const timeSlots = TIME_SLOTS;
 
   return {
@@ -22,6 +23,7 @@ export async function getInitialData() {
     teachers,
     classrooms,
     teachingAssignments,
+    teacherPreferences,
     timeSlots,
   };
 }
