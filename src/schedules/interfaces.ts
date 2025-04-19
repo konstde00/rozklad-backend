@@ -1,5 +1,7 @@
 import { DayOfWeek, PreferenceType } from '@prisma/client';
 
+// interfaces.ts
+
 export interface GeneticAlgorithmConfig {
   populationSize: number;
   crossoverRate: number;

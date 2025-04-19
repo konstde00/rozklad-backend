@@ -68,9 +68,18 @@ export class SchedulesService {
 
     const data: DataService = await getInitialData();
 
+    const unavailableGroups = data.studentGroups.filter(group =>
+      !data.classrooms.some(classroom => classroom.capacity >= group.students_count)
+    );
+
+    if (unavailableGroups.length > 0) {
+      const groupNames = unavailableGroups.map(g => g.name).join(', ');
+      throw new BadRequestException(`Not enough classrooms available for the following groups: ${groupNames}`);
+    }
+
     // Merge default config with any provided in the DTO
     const config: GeneticAlgorithmConfig = {
-      populationSize: generateScheduleDto.config?.populationSize || 50,
+      populationSize: generateScheduleDto.config?.populationSize || 1000,
       crossoverRate: generateScheduleDto.config?.crossoverRate || 0.7,
       mutationRate: generateScheduleDto.config?.mutationRate || 0.1,
       generations: generateScheduleDto.config?.generations || 100,
@@ -318,7 +327,7 @@ export class SchedulesService {
 
             if (!matchingGroup) {
               throw new NotFoundException(
-                `To generate schedule need to add group with speciality ${ta.speciality} for ${ta.course_number} education course`,
+                `Для генерації розкладу необхідно додати групу зі спеціальністю ${ta.speciality} для ${ta.course_number} курсу навчання`,
               );
             }
 
@@ -330,21 +339,18 @@ export class SchedulesService {
               },
             });
 
-            if (existingTA) {
-              throw new BadRequestException(
-                `Group "${matchingGroup.name}" already has a teaching assignment for subject "${ta.subject.name}".`,
+            if (!existingTA) {
+
+              // Assign the matching group to the teaching assignment
+              await prisma.teachingAssignment.update({
+                where: { id: ta.id },
+                data: { group_id: matchingGroup.id },
+              });
+
+              console.log(
+                `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
               );
             }
-
-            // Assign the matching group to the teaching assignment
-            await prisma.teachingAssignment.update({
-              where: { id: ta.id },
-              data: { group_id: matchingGroup.id },
-            });
-
-            console.log(
-              `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
-            );
           }
         }
       });

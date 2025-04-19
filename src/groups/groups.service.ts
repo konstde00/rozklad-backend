@@ -118,6 +118,7 @@ export class GroupsService {
       name: group.name,
       students_count: group.students_count,
       course_number: group.course_number,
+      speciality: group.speciality,
       teachingAssignments: uniqueSubjects,
     };
   }

@@ -148,4 +148,20 @@ export class TeachingAssignmentsController {
       message: 'TeachingAssignment deleted successfully',
     };
   }
+
+  /**
+   * Delete all teaching assignments
+   */
+  @Delete()
+  @ApiOperation({ summary: 'Delete all teaching assignments' })
+  @ApiResponse({
+    status: 204,
+    description: 'All TeachingAssignments deleted successfully',
+  })
+  async removeAll() {
+    await this.teachingAssignmentsService.removeAll();
+    return {
+      message: 'All TeachingAssignments deleted successfully',
+    };
+  }
 }

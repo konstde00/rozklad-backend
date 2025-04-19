@@ -1,10 +1,12 @@
+// geneticAlgorithm.spec.ts
+
 import { runGeneticAlgorithm } from './geneticAlgorithm';
 import { GeneticAlgorithmConfig } from '../interfaces';
 import { generateRandomWeeklySchedule } from './scheduleGenerator';
 import { calculateFitness } from './fitnessFunction';
 import { WeeklyEvent, WeeklySchedule } from './types';
 import { expandWeeklyScheduleToSemester } from './expandWeeklySchedule';
-import { TIME_SLOTS } from '../timeSlots';
+import { TIME_SLOTS, PAIR_SLOTS } from '../timeSlots';  // note we reference pairs
 import _ from 'lodash';
 import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
 
@@ -22,8 +24,8 @@ describe('Genetic Algorithm', () => {
         {
           id: 1,
           title: 'First Semester 2024',
-          start_date: new Date('2024-09-01T00:00:00Z'), // UTC
-          end_date: new Date('2024-12-08T00:00:00Z'),   // UTC
+          start_date: new Date('2024-09-01T00:00:00Z'),
+          end_date: new Date('2024-12-08T00:00:00Z'),
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -132,7 +134,6 @@ describe('Genetic Algorithm', () => {
           updated_at: new Date(),
         },
       ],
-
       teachingAssignments: [
         {
           id: 1,
@@ -203,10 +204,10 @@ describe('Genetic Algorithm', () => {
     };
 
     config = {
-      populationSize: 10,
+      populationSize: 2500,
       crossoverRate: 0.7,
       mutationRate: 0.1,
-      generations: 10,
+      generations: 100,
     };
   });
 
@@ -214,7 +215,7 @@ describe('Genetic Algorithm', () => {
     jest.resetAllMocks();
   });
 
-  it('should generate an initial weekly schedule', () => {
+  it('should generate an initial weekly schedule with only valid pair indices', () => {
     const clonedData = _.cloneDeep(data);
     const weeklySchedule: WeeklySchedule = generateRandomWeeklySchedule(clonedData);
     expect(weeklySchedule.events.length).toBeGreaterThan(0);
@@ -223,8 +224,11 @@ describe('Genetic Algorithm', () => {
     weeklySchedule.events.forEach((event) => {
       expect(event.title).toBeDefined();
       expect(event.dayOfWeek).toBeDefined();
+
+      // Now only 0..3 is allowed for timeSlot
       expect(event.timeSlot).toBeGreaterThanOrEqual(0);
-      expect(event.timeSlot).toBeLessThan(TIME_SLOTS.length);
+      expect(event.timeSlot).toBeLessThan(PAIR_SLOTS.length);
+
       expect(event.groupId).toBeDefined();
       expect(event.teacherId).toBeDefined();
       expect(event.subjectId).toBeDefined();
@@ -240,7 +244,7 @@ describe('Genetic Algorithm', () => {
     expect(typeof fitness).toBe('number');
   });
 
-  it('should run the genetic algorithm and return a valid weekly schedule', async () => {
+  it('should run the genetic algorithm and return a valid weekly schedule with pair constraints', async () => {
     const clonedData = _.cloneDeep(data);
     const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
     expect(bestWeeklySchedule.events.length).toBeGreaterThan(0);
@@ -249,9 +253,15 @@ describe('Genetic Algorithm', () => {
     // Ensure best schedule meets constraints
     const fitness = calculateFitness(bestWeeklySchedule, clonedData, weeksInSemester);
     expect(fitness).toBe(bestWeeklySchedule.fitness);
+
+    // Also check no event has an invalid pair index
+    bestWeeklySchedule.events.forEach((evt) => {
+      expect(evt.timeSlot).toBeGreaterThanOrEqual(0);
+      expect(evt.timeSlot).toBeLessThanOrEqual(3);
+    });
   });
 
-  it('should generate schedules that meet all hours per semester requirements', async () => {
+  it('should generate schedules that meet all hours per semester requirements (within tolerance)', async () => {
     const clonedData = _.cloneDeep(data);
     const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
     const semesterStartDate = clonedData.semesters[0].start_date;
@@ -265,30 +275,28 @@ describe('Genetic Algorithm', () => {
       semesterEndDate,
     );
 
-    // Initialize a map to track total scheduled hours per group per subject per lesson type
     const groupSubjectLessonTypeHours = new Map<string, number>();
 
-    // Aggregate scheduled hours based on group_id, subject_id, and lesson_type
+    // If each pair is 2 hours, we count 2. If 1, count 1.
+    const hoursPerPair = 2;
+
     fullSemesterEvents.forEach((event) => {
       const key = `${event.group_id}-${event.subject_id}-${event.lesson_type}`;
-      const eventDuration = 1; // Each lesson is 1 hour
-
-      if (groupSubjectLessonTypeHours.has(key)) {
-        groupSubjectLessonTypeHours.set(
-          key,
-          groupSubjectLessonTypeHours.get(key)! + eventDuration,
-        );
-      } else {
-        groupSubjectLessonTypeHours.set(key, eventDuration);
+      if (!groupSubjectLessonTypeHours.has(key)) {
+        groupSubjectLessonTypeHours.set(key, 0);
       }
+      groupSubjectLessonTypeHours.set(
+        key,
+        groupSubjectLessonTypeHours.get(key)! + hoursPerPair
+      );
     });
 
-    // Verify that scheduled hours meet or are within a tolerance of the required hours
+    // Compare against required assignment hours
     groupSubjectLessonTypeHours.forEach((scheduledHours, key) => {
       const [groupIdStr, subjectIdStr, lessonTypeStr] = key.split('-');
 
-      const groupId = parseInt(groupIdStr, 10);
-      const subjectId = parseInt(subjectIdStr, 10);
+      const groupId = parseInt(groupIdStr);
+      const subjectId = parseInt(subjectIdStr);
       const lessonType = lessonTypeStr as LessonType;
 
       const assignment = clonedData.teachingAssignments.find(
@@ -302,29 +310,34 @@ describe('Genetic Algorithm', () => {
       }
 
       let requiredHours = 0;
-      if (lessonType === 'lecture') {
-        requiredHours = assignment.lecture_hours_per_semester;
-      } else if (lessonType === 'practice') {
-        requiredHours = assignment.practice_hours_per_semester;
-      } else if (lessonType === 'lab') {
-        requiredHours = assignment.lab_hours_per_semester;
-      } else if (lessonType === 'seminar') {
-        requiredHours = assignment.seminar_hours_per_semester;
+      switch (lessonType) {
+        case 'lecture':
+          requiredHours = assignment.lecture_hours_per_semester;
+          break;
+        case 'practice':
+          requiredHours = assignment.practice_hours_per_semester;
+          break;
+        case 'lab':
+          requiredHours = assignment.lab_hours_per_semester;
+          break;
+        case 'seminar':
+          requiredHours = assignment.seminar_hours_per_semester;
+          break;
       }
 
+      // We'll allow a tolerance
       const toleranceHours = 12;
 
       if (Math.abs(scheduledHours - requiredHours) > toleranceHours) {
         console.error(
-          `Scheduled hours do not meet required hours for group: ${groupId.toString()}, subject: ${subjectId.toString()}, type: ${lessonType}, required: ${requiredHours}, scheduled: ${scheduledHours}`,
+          `Scheduled hours do not meet required hours for group: ${groupId}, subject: ${subjectId}, type: ${lessonType}, required: ${requiredHours}, scheduled: ${scheduledHours}`,
         );
       }
-
       expect(Math.abs(scheduledHours - requiredHours)).toBeLessThanOrEqual(toleranceHours);
     });
   });
 
-  // Helper function to check for schedule conflicts
+  // Helper function to check for schedule collisions
   function checkScheduleConflicts(
     entity: 'teacher' | 'group' | 'classroom',
     events: WeeklyEvent[],
@@ -332,71 +345,66 @@ describe('Genetic Algorithm', () => {
     const schedule = new Map<string, Set<number>>();
     const conflicts: string[] = [];
 
+    // entityId-dayOfWeek => set of used pairIndices
     events.forEach((event) => {
       const day = event.dayOfWeek;
-      const timeSlot = event.timeSlot;
-      const entityId =
-        entity === 'teacher'
-          ? event.teacherId.toString()
-          : entity === 'group'
-            ? event.groupId.toString()
-            : event.classroomId.toString();
-
+      const pairIndex = event.timeSlot;
+      let entityId: string;
+      switch (entity) {
+        case 'teacher':
+          entityId = `${event.teacherId}`;
+          break;
+        case 'group':
+          entityId = `${event.groupId}`;
+          break;
+        case 'classroom':
+          entityId = `${event.classroomId}`;
+          break;
+      }
       const key = `${entityId}-${day}`;
-
       if (!schedule.has(key)) {
         schedule.set(key, new Set());
       }
-
-      const timeSlots = schedule.get(key)!;
-
-      if (timeSlots.has(timeSlot)) {
+      const usedPairs = schedule.get(key)!;
+      if (usedPairs.has(pairIndex)) {
         conflicts.push(
-          `${entity} ${entityId} has more than one class at time slot ${timeSlot} on ${day}`,
+          `${entity} ${entityId} has more than one class at pair ${pairIndex} on ${day}`
         );
       } else {
-        timeSlots.add(timeSlot);
+        usedPairs.add(pairIndex);
       }
     });
-
     return conflicts;
   }
 
-  it('should schedule teachers to teach only one class at a time', async () => {
+  it('should schedule teachers to teach only one class at a time (pair)', async () => {
     const bestWeeklySchedule = await runGeneticAlgorithm(config, data, semesterId);
-
     const conflicts = checkScheduleConflicts('teacher', bestWeeklySchedule.events);
-
     if (conflicts.length > 0) {
-      console.error('Conflicts found:', conflicts);
+      console.error('Teacher Conflicts found:', conflicts);
     }
-
     expect(conflicts.length).toBe(0);
   });
 
-  it('should schedule groups to have only one class at a time', async () => {
+  it('should schedule groups to have only one class at a time (pair)', async () => {
     const clonedData = _.cloneDeep(data);
     const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
 
     const conflicts = checkScheduleConflicts('group', bestWeeklySchedule.events);
-
     if (conflicts.length > 0) {
-      console.error('Conflicts found:', conflicts);
+      console.error('Group Conflicts found:', conflicts);
     }
-
     expect(conflicts.length).toBe(0);
   });
 
-  it('should schedule classrooms to be used for only one class at a time', async () => {
+  it('should schedule classrooms to be used only once at a time (pair)', async () => {
     const clonedData = _.cloneDeep(data);
     const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
 
     const conflicts = checkScheduleConflicts('classroom', bestWeeklySchedule.events);
-
     if (conflicts.length > 0) {
-      console.error('Conflicts found:', conflicts);
+      console.error('Classroom Conflicts found:', conflicts);
     }
-
     expect(conflicts.length).toBe(0);
   });
 
@@ -420,5 +428,36 @@ describe('Genetic Algorithm', () => {
 
     // We expect none
     expect(invalidEvents.length).toBe(0);
+  });
+  it('should not exceed 4 pairs in any single day for teacher, group, or classroom', async () => {
+    const clonedData = _.cloneDeep(data);
+    const bestWeeklySchedule = await runGeneticAlgorithm(config, clonedData, semesterId);
+
+    // Count pairs per day for each teacher, group, and classroom
+    const dayCountsTeacher = new Map<string, number>();   // teacherId-dayOfWeek => count
+    const dayCountsGroup = new Map<string, number>();     // groupId-dayOfWeek => count
+    const dayCountsClassroom = new Map<string, number>(); // classroomId-dayOfWeek => count
+
+    for (const e of bestWeeklySchedule.events) {
+      const tKey = `${e.teacherId}-${e.dayOfWeek}`;
+      dayCountsTeacher.set(tKey, (dayCountsTeacher.get(tKey) || 0) + 1);
+
+      const gKey = `${e.groupId}-${e.dayOfWeek}`;
+      dayCountsGroup.set(gKey, (dayCountsGroup.get(gKey) || 0) + 1);
+
+      const cKey = `${e.classroomId}-${e.dayOfWeek}`;
+      dayCountsClassroom.set(cKey, (dayCountsClassroom.get(cKey) || 0) + 1);
+    }
+
+    // Check that none exceed 4
+    dayCountsTeacher.forEach((count, k) => {
+      expect(count).toBeLessThanOrEqual(4);
+    });
+    dayCountsGroup.forEach((count, k) => {
+      expect(count).toBeLessThanOrEqual(4);
+    });
+    dayCountsClassroom.forEach((count, k) => {
+      expect(count).toBeLessThanOrEqual(4);
+    });
   });
 });
