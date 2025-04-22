@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from './email.service';
 import { GoogleSignInDto } from './dto/google-signin.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -17,16 +18,44 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.initiateSuperAdminAccount();
+  }
 
   private hashPassword(password: string): string {
     return crypto.createHash('sha256').update(password).digest('hex');
   }
 
+  public async initiateSuperAdminAccount(): Promise<void> {
+    const email = this.configService.get('SUPER_ADMIN_EMAIL');
+    const adminPassword = this.configService.get('SUPER_ADMIN_PASSWORD');
+    const exist = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    const passwordHash = this.hashPassword(adminPassword);
+
+    if (!exist) {
+      await this.prisma.user.create({
+        data: {
+          username: email + '-admin',
+          email: email,
+          password_hash: passwordHash,
+          is_active: true,
+          code: 'null',
+          role: 'system_admin',
+        },
+      });
+    }
+  }
+
   async login(email: string, password: string): Promise<any> {
     const passwordHash = this.hashPassword(password);
 
-    const user = await this.prisma.user.findUnique({ where: { email, is_active: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { email, is_active: true },
+    });
 
     if (user && user.password_hash === passwordHash && user.is_active) {
       const { password_hash, ...result } = user;
