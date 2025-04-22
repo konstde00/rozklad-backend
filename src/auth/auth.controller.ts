@@ -3,8 +3,6 @@ import {
   Post,
   Body,
   Put,
-  UnauthorizedException,
-  NotFoundException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';

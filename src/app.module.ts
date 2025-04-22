@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TeachingAssignmentsModule } from './teachingAssignments/teaching-assignments.module';
 import { ExcelparserModule } from './excelparser/excelparser.module';
 import { TeacherPreferencesModule } from './teacher-preferences/teacher-preferences.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TeacherPreferencesModule } from './teacher-preferences/teacher-preferen
       isGlobal: true,
     }),
     AuthModule,
+    UsersModule,
     PrismaModule,
     ClassroomsModule,
     GroupsModule,
