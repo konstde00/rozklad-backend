@@ -5,21 +5,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ScheduleDto } from './dto/schedule.dto';
 import { GenerateScheduleDto } from './dto/generate-schedule.dto';
 import { getInitialData } from './dataService';
-import { runGeneticAlgorithm } from './generation/geneticAlgorithm';
+import { checkHardConstraints, runGeneticAlgorithm } from './generation/geneticAlgorithm';
 import { expandWeeklyScheduleToSemester } from './generation/expandWeeklySchedule';
 import { GeneticAlgorithmConfig } from './interfaces';
-import { WeeklySchedule } from './generation/types';
+import { WeeklyEvent, WeeklySchedule } from './generation/types';
 import { DataService } from './interfaces';
 import { EventDto } from './dto/event.dto';
-import { Prisma } from '@prisma/client';
-import { GroupsService } from '../groups/groups.service';
-import { TeachingAssignmentsService } from '../teachingAssignments/teaching-assignments.service';
+import { DayOfWeek, LessonType, Prisma } from '@prisma/client';
+import { PAIR_SLOTS } from './timeSlots';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly prisma: PrismaService,
-              private readonly groupsService: GroupsService,
-              private readonly teachingAssignmentsService: TeachingAssignmentsService) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  WEEKDAYS: DayOfWeek[] = [
+    'Monday','Tuesday','Wednesday','Thursday','Friday'
+  ];
 
   /**
    * Fetches all schedules for a given semester ID.
@@ -45,6 +46,7 @@ export class SchedulesService {
     return schedules.map((schedule) => this.toScheduleDto(schedule));
   }
 
+
   /**
    * Generates a schedule for a given semester using a genetic algorithm.
    * @param generateScheduleDto - Data Transfer Object containing semester ID and optional GA config.
@@ -53,45 +55,41 @@ export class SchedulesService {
   async generateSchedule(
     generateScheduleDto: GenerateScheduleDto,
   ): Promise<ScheduleDto> {
-
     await this.assignGroupsToTeachingAssignments();
 
     const semesterId = +generateScheduleDto.semesterId;
-
     const semester = await this.prisma.semester.findUnique({
       where: { id: semesterId },
     });
-
     if (!semester) {
       throw new NotFoundException('Semester not found');
     }
 
     const data: DataService = await getInitialData();
 
-    const unavailableGroups = data.studentGroups.filter(group =>
-      !data.classrooms.some(classroom => classroom.capacity >= group.students_count)
+    const unavailableGroups = data.studentGroups.filter(
+      (g) => !data.classrooms.some((c) => c.capacity >= g.students_count),
     );
-
     if (unavailableGroups.length > 0) {
-      const groupNames = unavailableGroups.map(g => g.name).join(', ');
-      throw new BadRequestException(`Not enough classrooms available for the following groups: ${groupNames}`);
+      const groupNames = unavailableGroups.map((g) => g.name).join(', ');
+      throw new BadRequestException(
+        `Not enough classrooms for the following groups: ${groupNames}`,
+      );
     }
 
-    // Merge default config with any provided in the DTO
     const config: GeneticAlgorithmConfig = {
-      populationSize: generateScheduleDto.config?.populationSize || 1000,
-      crossoverRate: generateScheduleDto.config?.crossoverRate || 0.7,
-      mutationRate: generateScheduleDto.config?.mutationRate || 0.1,
-      generations: generateScheduleDto.config?.generations || 100,
+      populationSize: generateScheduleDto.config?.populationSize ?? 100,
+      crossoverRate: generateScheduleDto.config?.crossoverRate ?? 0.6,
+      mutationRate: generateScheduleDto.config?.mutationRate ?? 0.3,
+      generations: generateScheduleDto.config?.generations ?? 10,
     };
-
     const bestWeeklySchedule: WeeklySchedule = await runGeneticAlgorithm(
       config,
       data,
       semesterId,
     );
 
-    console.log('Best Schedule Fitness:', bestWeeklySchedule.fitness);
+    this.forceInsertOnePairForEmptyAssignments(bestWeeklySchedule.events, data);
 
     const fullSemesterEvents = await expandWeeklyScheduleToSemester(
       bestWeeklySchedule,
@@ -99,8 +97,7 @@ export class SchedulesService {
       semester.end_date,
     );
 
-    console.log('Total Events Generated:', fullSemesterEvents.length);
-
+    /** STEP 5. Зберігаємо у БД */
     const createdSchedule = await this.prisma.schedule.create({
       data: {
         name: `Schedule for Semester ${semester.id}`,
@@ -298,71 +295,124 @@ export class SchedulesService {
    * Throws an exception if a suitable group cannot be found.
    */
   async assignGroupsToTeachingAssignments(): Promise<void> {
-    try {
-      await this.prisma.$transaction(async (prisma) => {
-        // Fetch all teaching assignments with their associated groups and subjects
-        const teachingAssignments = await prisma.teachingAssignment.findMany({
-          include: {
-            studentGroup: true,
-            subject: true,
-          },
+    await this.prisma.$transaction(async (tx) => {
+      const allGroups = await tx.studentGroup.findMany();
+      const groupsCache = new Map<
+        string,
+        { id: number; name: string }[]
+      >(); // key = `${spec}-${course}`
+      allGroups.forEach((g) => {
+        const key = `${g.speciality}-${g.course_number}`;
+        if (!groupsCache.has(key)) groupsCache.set(key, []);
+        groupsCache.get(key)!.push({ id: g.id, name: g.name });
+      });
+
+      const taByGroupSubject = new Map<string, boolean>(); // `${groupId}-${subjectId}`
+
+      const teachingAssignments = await tx.teachingAssignment.findMany();
+
+      // заповнюємо кеш існуючими записами (до зміни)
+      teachingAssignments.forEach((ta) =>
+        taByGroupSubject.set(`${ta.group_id}-${ta.subject_id}`, true),
+      );
+
+      for (const ta of teachingAssignments) {
+        const currentGroup = ta.group_id
+          ? allGroups.find((g) => g.id === ta.group_id)
+          : null;
+
+        const fits =
+          currentGroup &&
+          currentGroup.speciality === ta.speciality &&
+          currentGroup.course_number === ta.course_number;
+
+        if (fits) continue; // усе добре
+
+        const possible = groupsCache.get(
+          `${ta.speciality}-${ta.course_number}`,
+        );
+        if (!possible?.length) {
+          throw new NotFoundException(
+            `Для speciality=${ta.speciality}, course=${ta.course_number} немає жодної студентської групи`,
+          );
+        }
+
+        let chosenGroupId: number | null = null;
+        for (const g of possible) {
+          if (!taByGroupSubject.get(`${g.id}-${ta.subject_id}`)) {
+            chosenGroupId = g.id;
+            break;
+          }
+        }
+
+        if (chosenGroupId === null) {
+          chosenGroupId = possible[0].id;
+        }
+
+        await tx.teachingAssignment.update({
+          where: { id: ta.id },
+          data: { group_id: chosenGroupId },
         });
 
-        for (const ta of teachingAssignments) {
-          const currentGroup = ta.studentGroup;
+        taByGroupSubject.set(`${chosenGroupId}-${ta.subject_id}`, true);
+      }
+    });
+  }
 
-          // Verify that the current group's speciality and course_number match the teaching assignment
-          if (
-            currentGroup === null ||
-            currentGroup.speciality !== ta.speciality ||
-            currentGroup.course_number !== ta.course_number
-          ) {
-            // Find a group that matches the teaching assignment's speciality and course_number
-            const matchingGroup = await prisma.studentGroup.findFirst({
-              where: {
-                speciality: ta.speciality,
-                course_number: ta.course_number,
-              },
-            });
+  private forceInsertOnePairForEmptyAssignments(
+    events: WeeklyEvent[],
+    data: DataService,
+  ) {
+    // 1) Збираємо ключі group–subject–lessonType, які вже є
+    const hasEvent = new Set<string>();
+    for (const ev of events) {
+      hasEvent.add(`${ev.groupId}-${ev.subjectId}-${ev.lessonType}`);
+    }
 
-            if (!matchingGroup) {
-              throw new NotFoundException(
-                `Для генерації розкладу необхідно додати групу зі спеціальністю ${ta.speciality} для ${ta.course_number} курсу навчання`,
-              );
-            }
+    // 2) Для кожного TA і кожного потрібного типу додаємо по одній парі
+    for (const ta of data.teachingAssignments) {
+      // складаємо список lessonType, які треба хоча б раз поставити
+      const types: LessonType[] = [];
+      if (ta.lecture_hours_per_semester  > 0) types.push('lecture');
+      if (ta.practice_hours_per_semester > 0) types.push('practice');
+      if (ta.lab_hours_per_semester      > 0) types.push('lab');
+      if (ta.seminar_hours_per_semester  > 0) types.push('seminar');
 
-            // Check if the matching group already has a teaching assignment for this subject
-            const existingTA = await prisma.teachingAssignment.findFirst({
-              where: {
-                group_id: matchingGroup.id,
-                subject_id: ta.subject_id,
-              },
-            });
+      for (const lessonType of types) {
+        const key = `${ta.group_id}-${ta.subject_id}-${lessonType}`;
+        if (hasEvent.has(key)) continue;  // вже є
 
-            if (!existingTA) {
+        // Знайдемо group, subject, teacher
+        const group   = data.studentGroups.find(g => g.id === ta.group_id);
+        const subject = data.subjects.find(s => s.id === ta.subject_id);
+        const teacher = data.teachers.find(t => t.id === ta.teacher_id);
+        if (!group || !subject || !teacher) continue;
 
-              // Assign the matching group to the teaching assignment
-              await prisma.teachingAssignment.update({
-                where: { id: ta.id },
-                data: { group_id: matchingGroup.id },
-              });
-
-              console.log(
-                `TeachingAssignment ID ${ta.id} reassigned to Group "${matchingGroup.name}".`,
-              );
+        // 3) Перебираємо дні, пари, аудиторії — шукаємо першу вільну
+        outer: for (const day of this.WEEKDAYS) {
+          for (let slot = 0; slot < PAIR_SLOTS.length; slot++) {
+            for (const room of data.classrooms.filter(c => c.capacity >= group.students_count)) {
+              const candidate: WeeklyEvent = {
+                title:       subject.name,
+                dayOfWeek:   day,
+                timeSlot:    slot,
+                groupId:     group.id,
+                teacherId:   teacher.id,
+                subjectId:   subject.id,
+                classroomId: room.id,
+                lessonType,
+              };
+              // якщо жодного “hard” конфлікту — додаємо
+              if (checkHardConstraints([candidate, ...events], data).length === 0) {
+                events.push(candidate);
+                hasEvent.add(key);
+                break outer;
+              }
             }
           }
         }
-      });
-
-      console.log('All teaching assignments have been successfully assigned to appropriate groups.');
-    } catch (error) {
-      // Handle specific Prisma errors or rethrow
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
-        throw error;
       }
-      console.error('Error assigning groups to teaching assignments:', error);
-      throw new Error('Failed to assign groups to teaching assignments.');
     }
   }
 }
+

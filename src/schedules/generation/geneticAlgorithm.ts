@@ -5,12 +5,13 @@ import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
 import { WeeklySchedule } from './types';
 import { calculateFitness } from './fitnessFunction';
 import {
-  calculateSemesterWeeks,
-  generateRandomWeeklySchedule,
+  calculateSemesterWeeks, createScheduleMap,
+  generateRandomWeeklySchedule, updateScheduleMap,
 } from './scheduleGenerator';
 import { DataService, GeneticAlgorithmConfig } from '../interfaces';
 import { PAIR_SLOTS } from '../timeSlots';
 import { WeeklyEvent } from './types';
+import { pairToSlotIndices } from '../utils/slots';
 
 export async function runGeneticAlgorithm(
   config: GeneticAlgorithmConfig,
@@ -76,7 +77,7 @@ export async function runGeneticAlgorithm(
 }
 
 /**
- * Check “hard” constraints:
+ * Check "hard" constraints:
  *   - No teacher double-booked
  *   - No group double-booked
  *   - No classroom double-booked
@@ -85,88 +86,80 @@ export async function runGeneticAlgorithm(
  *   - No more than 4 pairs per day for teacher, group, or classroom
  * Returns a list of conflicting events that violate constraints.
  */
-function checkHardConstraints(
+export function checkHardConstraints(
   events: WeeklyEvent[],
   data: DataService,
 ): WeeklyEvent[] {
   const conflicts: WeeklyEvent[] = [];
-  const eventMap = new Map<string, WeeklyEvent>();
 
-  // For checking “already used” pair in a day:
-  const teacherDayCount = new Map<string, number>();    // key = teacherId-dayOfWeek => # of pairs
-  const groupDayCount = new Map<string, number>();      // key = groupId-dayOfWeek => # of pairs
-  const classroomDayCount = new Map<string, number>();  // key = classroomId-dayOfWeek => # of pairs
+  const DAILY_PAIR_LIMIT = PAIR_SLOTS.length;
 
-  // For checking collisions in the same pair slot
-  const usedTeacherSlot = new Map<string, boolean>();   // teacherId-dayOfWeek-pairIndex
-  const usedGroupSlot = new Map<string, boolean>();     // groupId-dayOfWeek-pairIndex
-  const usedClassroomSlot = new Map<string, boolean>(); // classroomId-dayOfWeek-pairIndex
+  const teacherDayCount = new Map<string, number>();
+  const groupDayCount   = new Map<string, number>();
+  const classroomDayCount = new Map<string, number>();
+
+  const usedTeacherSlot = new Map<string, WeeklyEvent>();
+  const usedGroupSlot = new Map<string, WeeklyEvent>();
+  const usedClassroomSlot = new Map<string, WeeklyEvent>();
 
   for (const event of events) {
     // Build a day/time key
     const key = `${event.dayOfWeek}-${event.timeSlot}`;
 
-    // 1) Check teacher's REQUIRED_FREE
+    // Check teacher's REQUIRED_FREE preferences
     const teacherPrefs = data.teacherPreferences.filter(
       (p) => p.teacher_id === event.teacherId
     );
-    // If any preference for (event.dayOfWeek + event.timeSlot) is REQUIRED_FREE,
-    // that means the teacher is effectively "unavailable."
+
+    const [slotA, slotB] = pairToSlotIndices(event.timeSlot);
+
     const hasRequiredFree = teacherPrefs.some(
       (p) =>
         p.day_of_week === event.dayOfWeek &&
-        p.time_slot_index === event.timeSlot &&
-        p.preference === PreferenceType.REQUIRED_FREE
+        p.preference === PreferenceType.REQUIRED_FREE &&
+        (p.time_slot_index === slotA || p.time_slot_index === slotB)
     );
+
     if (hasRequiredFree) {
-      // This is a conflict, teacher is not allowed to have a class here
       conflicts.push(event);
       continue;
     }
 
-    const teacherKey = `teacher-${event.teacherId}-${key}`;
-    if (eventMap.has(teacherKey)) {
-      conflicts.push(event);
-      continue;
-    }
     const { dayOfWeek, timeSlot, teacherId, groupId, classroomId } = event;
 
     const dayKeyTeacher = `${teacherId}-${dayOfWeek}`;
     const dayKeyGroup = `${groupId}-${dayOfWeek}`;
     const dayKeyClassroom = `${classroomId}-${dayOfWeek}`;
 
-    // 1) Check 4 pairs/day limit for teacher
+    // Check 4 pairs/day limit for teacher
     teacherDayCount.set(
       dayKeyTeacher,
       (teacherDayCount.get(dayKeyTeacher) || 0) + 1
     );
-    if (teacherDayCount.get(dayKeyTeacher)! > 4) {
+    if (teacherDayCount.get(dayKeyTeacher)! > DAILY_PAIR_LIMIT) {
       conflicts.push(event);
       continue;
     }
-      
 
-    // 2) Check 4 pairs/day limit for group
     groupDayCount.set(
       dayKeyGroup,
       (groupDayCount.get(dayKeyGroup) || 0) + 1
     );
-    if (groupDayCount.get(dayKeyGroup)! > 4) {
+    if (groupDayCount.get(dayKeyGroup)! > DAILY_PAIR_LIMIT) {
       conflicts.push(event);
       continue;
     }
 
-    // 3) Check 4 pairs/day limit for classroom
     classroomDayCount.set(
       dayKeyClassroom,
       (classroomDayCount.get(dayKeyClassroom) || 0) + 1
     );
-    if (classroomDayCount.get(dayKeyClassroom)! > 4) {
+    if (classroomDayCount.get(dayKeyClassroom)! > DAILY_PAIR_LIMIT) {
       conflicts.push(event);
       continue;
     }
 
-    // 4) Check collisions in the same pair slot
+    // Check collisions in the same pair slot
     const tKey = `T-${teacherId}-${dayOfWeek}-${timeSlot}`;
     const gKey = `G-${groupId}-${dayOfWeek}-${timeSlot}`;
     const cKey = `C-${classroomId}-${dayOfWeek}-${timeSlot}`;
@@ -178,11 +171,11 @@ function checkHardConstraints(
     }
 
     // Mark them used
-    usedTeacherSlot.set(tKey, true);
-    usedGroupSlot.set(gKey, true);
-    usedClassroomSlot.set(cKey, true);
+    usedTeacherSlot.set(tKey, event);
+    usedGroupSlot.set(gKey, event);
+    usedClassroomSlot.set(cKey, event);
 
-    // 5) Check capacity
+    // Check capacity - return immediately if not enough capacity
     const group = data.studentGroups.find((g) => g.id === groupId);
     const classroom = data.classrooms.find((c) => c.id === classroomId);
     if (group && classroom && classroom.capacity < group.students_count) {
@@ -190,7 +183,7 @@ function checkHardConstraints(
       continue;
     }
 
-    // 6) Check teacher qualification
+    // Check teacher qualification
     const assignmentExists = data.teachingAssignments.some(
       (ta) =>
         ta.teacher_id === event.teacherId &&
@@ -201,6 +194,7 @@ function checkHardConstraints(
           (ta.lab_hours_per_semester > 0 && event.lessonType === 'lab') ||
           (ta.seminar_hours_per_semester > 0 && event.lessonType === 'seminar')),
     );
+
     if (!assignmentExists) {
       conflicts.push(event);
       continue;

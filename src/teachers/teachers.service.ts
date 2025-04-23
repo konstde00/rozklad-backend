@@ -112,7 +112,7 @@ export class TeachersService {
       const [lastName, firstName, ...rest] = fullName.split(' ');
 
       // Встановлюємо max_hours_per_week рівним 0 для всіх викладачів
-      const max_hours_per_week = 40;
+      const max_hours_per_week = 60;
 
       // Перевіряємо, чи користувач із таким ім'ям вже існує
       let existingUser = await this.prisma.user.findFirst({
