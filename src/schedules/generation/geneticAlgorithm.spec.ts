@@ -326,7 +326,7 @@ describe('Genetic Algorithm', () => {
       }
 
       // We'll allow a tolerance
-      const toleranceHours = 12;
+      const toleranceHours = 4;
 
       if (Math.abs(scheduledHours - requiredHours) > toleranceHours) {
         console.error(

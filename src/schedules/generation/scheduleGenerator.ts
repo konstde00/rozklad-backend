@@ -1,111 +1,173 @@
-// scheduleGenerator.ts
-
-// scheduleGenerator.ts
-
+// src/schedules/generation/scheduleGenerator.ts
+import { DayOfWeek, LessonType, PreferenceType } from '@prisma/client';
 import { WeeklyEvent, WeeklySchedule } from './types';
-import { PAIR_SLOTS } from '../timeSlots'; // use pairs now
+import { PAIR_SLOTS } from '../timeSlots';
 import { DataService } from '../interfaces';
-import { DayOfWeek, LessonType } from '@prisma/client';
+import { HOURS_PER_PAIR } from '../constants';
 
-export function generateRandomWeeklySchedule(data: DataService): WeeklySchedule {
+const WEEKDAYS: DayOfWeek[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+];
+
+const MAX_RETRIES_PER_LESSON = 250;
+
+/** Fisher–Yates shuffle */
+function shuffle<T>(array: T[]): T[] {
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export function generateRandomWeeklySchedule(
+  data: DataService,
+): WeeklySchedule {
   const events: WeeklyEvent[] = [];
   const scheduleMap = createScheduleMap();
 
-  // Calculate the number of weeks in the semester
   const semesterWeeks = calculateSemesterWeeks(
     data.semesters[0].start_date,
     data.semesters[0].end_date,
   );
 
-  // For each teachingAssignment, we create approximate events
-  data.teachingAssignments.forEach((assignment) => {
-    const group = data.studentGroups.find((g) => g.id === assignment.group_id);
-    if (!group) return;
+  const teachingAssignments = shuffle(data.teachingAssignments);
 
-    const subject = data.subjects.find((s) => s.id === assignment.subject_id);
-    if (!subject) return;
+  /* ───────── 1‑й прохід ───────── */
+  const leftovers: {
+    ta: (typeof teachingAssignments)[number];
+    lessonTypes: LessonType[];
+    pairsPerWeek: number;
+  }[] = [];
 
-    const teacher = data.teachers.find((t) => t.id === assignment.teacher_id);
-    if (!teacher) return;
+  teachingAssignments.forEach((ta) => {
+    const group   = data.studentGroups.find((g) => g.id === ta.group_id);
+    const subject = data.subjects.find((s) => s.id === ta.subject_id);
+    const teacher = data.teachers.find((t) => t.id === ta.teacher_id);
+    if (!group || !subject || !teacher) return;
 
-    // We'll consider all lessonTypes
     const lessonTypes: LessonType[] = [];
-    if (assignment.lecture_hours_per_semester > 0) lessonTypes.push('lecture');
-    if (assignment.practice_hours_per_semester > 0) lessonTypes.push('practice');
-    if (assignment.lab_hours_per_semester > 0) lessonTypes.push('lab');
-    if (assignment.seminar_hours_per_semester > 0) lessonTypes.push('seminar');
+    if (ta.lecture_hours_per_semester)  lessonTypes.push('lecture');
+    if (ta.practice_hours_per_semester) lessonTypes.push('practice');
+    if (ta.lab_hours_per_semester)      lessonTypes.push('lab');
+    if (ta.seminar_hours_per_semester)  lessonTypes.push('seminar');
 
     lessonTypes.forEach((lt) => {
-      let requiredHours = 0;
-      switch (lt) {
-        case 'lecture':
-          requiredHours = assignment.lecture_hours_per_semester;
-          break;
-        case 'practice':
-          requiredHours = assignment.practice_hours_per_semester;
-          break;
-        case 'lab':
-          requiredHours = assignment.lab_hours_per_semester;
-          break;
-        case 'seminar':
-          requiredHours = assignment.seminar_hours_per_semester;
-          break;
-      }
+      const requiredHours =
+        lt === 'lecture'  ? ta.lecture_hours_per_semester  :
+          lt === 'practice' ? ta.practice_hours_per_semester :
+            lt === 'lab'      ? ta.lab_hours_per_semester      :
+              ta.seminar_hours_per_semester;
 
-      if (requiredHours === 0) return;
+      if (!requiredHours) return;
 
-      const totalLessons = Math.ceil(requiredHours / 2);
-      const lessonsPerWeek = Math.ceil(totalLessons / semesterWeeks);
+      const totalPairs   = Math.ceil(requiredHours / HOURS_PER_PAIR);
 
-      for (let i = 0; i < lessonsPerWeek; i++) {
-        // Pick a suitable classroom
-        const suitableClassrooms = data.classrooms.filter(
+      let pairsPerWeek = Math.floor(totalPairs / semesterWeeks);
+
+      if (pairsPerWeek === 0 && totalPairs > 0) pairsPerWeek = 1;
+
+      let placedPairs = 0;
+      let attempts    = 0;
+
+      while (placedPairs < pairsPerWeek && attempts < MAX_RETRIES_PER_LESSON) {
+        attempts++;
+
+        const dayOfWeek = WEEKDAYS[Math.floor(Math.random() * WEEKDAYS.length)];
+        const pairIdx   = Math.floor(Math.random() * PAIR_SLOTS.length);
+
+        const suitableRooms = data.classrooms.filter(
           (c) => c.capacity >= group.students_count,
         );
-        if (suitableClassrooms.length === 0) continue;
+        if (!suitableRooms.length) break;
         const classroom =
-          suitableClassrooms[Math.floor(Math.random() * suitableClassrooms.length)];
+          suitableRooms[Math.floor(Math.random() * suitableRooms.length)];
 
-        // random day_of_week
-        const daysOfWeek = Object.values(DayOfWeek).filter(
-          (value) => typeof value === 'string',
-        ) as DayOfWeek[];
-        const day_of_week =
-          daysOfWeek[Math.floor(Math.random() * daysOfWeek.length)];
-
-        // pick a random pair index 0..3
-        const pairIndex = Math.floor(Math.random() * PAIR_SLOTS.length);
-
-        const event: WeeklyEvent = {
-          title: subject.name,
-          dayOfWeek: day_of_week,
-          timeSlot: pairIndex, // store pair index
-          groupId: group.id,
-          teacherId: teacher.id,
-          subjectId: subject.id,
+        const candidate: WeeklyEvent = {
+          title:       subject.name,
+          dayOfWeek,
+          timeSlot:    pairIdx,
+          groupId:     group.id,
+          teacherId:   teacher.id,
+          subjectId:   subject.id,
           classroomId: classroom.id,
-          lessonType: lt,
+          lessonType:  lt,
         };
 
-        if (!hasConflict(event, scheduleMap)) {
-          events.push(event);
-          updateScheduleMap(event, scheduleMap);
+        if (!hasConflict(candidate, scheduleMap)) {
+          events.push(candidate);
+          updateScheduleMap(candidate, scheduleMap);
+          placedPairs++;
         } else {
-          // attempt alternative
-          const alternativeEvent = findAlternativeEvent(event, scheduleMap);
-          if (alternativeEvent) {
-            events.push(alternativeEvent);
-            updateScheduleMap(alternativeEvent, scheduleMap);
+          const alt = findAlternativeEvent(candidate, scheduleMap, data);
+          if (alt) {
+            events.push(alt);
+            updateScheduleMap(alt, scheduleMap);
+            placedPairs++;
           }
         }
       }
+
+      if (placedPairs < pairsPerWeek) {
+        leftovers.push({ ta, lessonTypes: [lt], pairsPerWeek: pairsPerWeek - placedPairs });
+      }
     });
+  });
+
+  // ───────── 2‑й прохід: пробуємо дорозставити «хвости» ─────────
+  leftovers.forEach(({ ta, lessonTypes, pairsPerWeek }) => {
+    const group = data.studentGroups.find((g) => g.id === ta.group_id);
+    const subject = data.subjects.find((s) => s.id === ta.subject_id);
+    const teacher = data.teachers.find((t) => t.id === ta.teacher_id);
+    if (!group || !subject || !teacher) return;
+
+    const suitableRooms = data.classrooms
+      .filter((c) => c.capacity >= group.students_count)
+      .sort((a, b) => a.capacity - b.capacity);
+
+    let placed = 0;
+    let attempts = 0;
+
+    while (placed < pairsPerWeek && attempts < MAX_RETRIES_PER_LESSON) {
+      attempts++;
+
+      for (const dayOfWeek of WEEKDAYS) {
+        for (let pairIdx = 0; pairIdx < PAIR_SLOTS.length; pairIdx++) {
+          for (const classroom of suitableRooms) {
+            const candidate: WeeklyEvent = {
+              title: subject.name,
+              dayOfWeek,
+              timeSlot: pairIdx,
+              groupId: group.id,
+              teacherId: teacher.id,
+              subjectId: subject.id,
+              classroomId: classroom.id,
+              lessonType: lessonTypes[0], // тут лише один lt
+            };
+
+            if (!hasConflict(candidate, scheduleMap)) {
+              events.push(candidate);
+              updateScheduleMap(candidate, scheduleMap);
+              placed++;
+              if (placed >= pairsPerWeek) break;
+            }
+          }
+          if (placed >= pairsPerWeek) break;
+        }
+        if (placed >= pairsPerWeek) break;
+      }
+    }
   });
 
   return { events };
 }
 
-function createScheduleMap() {
+export function createScheduleMap() {
   return {
     teacherSchedule: new Map<string, boolean>(),
     groupSchedule: new Map<string, boolean>(),
@@ -133,7 +195,7 @@ function hasConflict(event: WeeklyEvent, scheduleMap): boolean {
   return false;
 }
 
-function updateScheduleMap(event: WeeklyEvent, scheduleMap) {
+export function updateScheduleMap(event: WeeklyEvent, scheduleMap) {
   const key = `${event.dayOfWeek}-${event.timeSlot}`;
   scheduleMap.teacherSchedule.set(`T-${event.teacherId}-${key}`, true);
   scheduleMap.groupSchedule.set(`G-${event.groupId}-${key}`, true);
@@ -145,25 +207,51 @@ export function calculateSemesterWeeks(startDate: Date, endDate: Date): number {
   return Math.ceil((endDate.getTime() - startDate.getTime()) / msInWeek);
 }
 
-function findAlternativeEvent(
+export function findAlternativeEvent(
   event: WeeklyEvent,
-  scheduleMap
+  map,
+  data: DataService,
 ): WeeklyEvent | null {
-  const daysOfWeek = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-  ] as DayOfWeek[];
+  const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
 
-  for (const dayOfWeek of daysOfWeek) {
-    for (let pairIndex = 0; pairIndex < PAIR_SLOTS.length; pairIndex++) {
-      const alt = { ...event, dayOfWeek, timeSlot: pairIndex };
-      if (!hasConflict(alt, scheduleMap)) {
-        return alt;
+  const group = data.studentGroups.find((g) => g.id === event.groupId);
+  if (!group) return null;
+
+  const rooms = data.classrooms
+    .filter((c) => c.capacity >= group.students_count)
+    .sort((a, b) => a.capacity - b.capacity);
+
+  for (const day of WEEKDAYS) {
+    const forbidden = data.teacherPreferences.some(
+      (p) =>
+        p.teacher_id      === event.teacherId &&
+        p.day_of_week     === day             &&
+        p.time_slot_index === event.timeSlot  &&
+        p.preference      === PreferenceType.REQUIRED_FREE,
+    );
+    if (forbidden) continue;
+
+    for (let pairIdx = 0; pairIdx < PAIR_SLOTS.length; pairIdx++) {
+      const k = `${day}-${pairIdx}`;
+
+      // зайнятість викладача чи групи
+      if (
+        map.teacherSchedule.has(`T-${event.teacherId}-${k}`) ||
+        map.groupSchedule.has(`G-${event.groupId}-${k}`)
+      ) continue;
+
+      // підбираємо першу вільну аудиторію
+      for (const room of rooms) {
+        if (map.classroomSchedule.has(`C-${room.id}-${k}`)) continue;
+
+        return {
+          ...event,
+          dayOfWeek:   day,
+          timeSlot:    pairIdx,
+          classroomId: room.id,
+        };
       }
     }
   }
-  return null;
+  return null;   // альтернативи не знайдено
 }

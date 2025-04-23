@@ -8,8 +8,7 @@ export class TeacherPreferencesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateTeacherPreferenceDto) {
-    // If you are certain teacher already exists, no need to check teacher
-    // but it’s good to do a check or handle an error if teacher doesn’t exist
+
     const teacher = await this.prisma.teacher.findUnique({
       where: { id: data.teacher_id },
     });
