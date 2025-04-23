@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupDto } from './dto/group.dto';
 
 @Controller('v1/groups')
@@ -37,7 +36,7 @@ export class GroupsController {
   @Put(':groupId')
   async update(
     @Param('groupId') id: string,
-    @Body() updateGroupDto: UpdateGroupDto,
+    @Body() updateGroupDto: CreateGroupDto,
   ): Promise<GroupDto> {
     return this.groupsService.update(id, updateGroupDto);
   }

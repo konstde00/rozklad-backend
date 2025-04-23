@@ -78,12 +78,11 @@ export class SchedulesService {
     }
 
     const config: GeneticAlgorithmConfig = {
-      populationSize: generateScheduleDto.config?.populationSize ?? 2500,
+      populationSize: generateScheduleDto.config?.populationSize ?? 100,
       crossoverRate: generateScheduleDto.config?.crossoverRate ?? 0.6,
       mutationRate: generateScheduleDto.config?.mutationRate ?? 0.3,
       generations: generateScheduleDto.config?.generations ?? 10,
     };
-
     const bestWeeklySchedule: WeeklySchedule = await runGeneticAlgorithm(
       config,
       data,
