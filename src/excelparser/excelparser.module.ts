@@ -20,3 +20,6 @@ import { TeachingAssignmentsModule } from '../teachingAssignments/teaching-assig
  
 })
 export class ExcelparserModule {}
+
+//npx ts-node scripts/clear-db.ts
+//npm run start:dev

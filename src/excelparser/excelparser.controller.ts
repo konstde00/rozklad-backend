@@ -5,17 +5,26 @@ import {
   Res,
   UploadedFile,
   UseInterceptors,
+  Body,
 } from '@nestjs/common';
 import { ExcelparserService } from './excelparser.service';
+import { TeachersService } from '../teachers/teachers.service';
+import { SubjectsService } from '../subjects/subjects.service';
+import { TeachingAssignmentsService } from '../teachingAssignments/teaching-assignments.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Express, Response } from 'express';
-import * as fs from 'fs';
+import { Response } from 'express';
+import { join } from 'path';
 
 @ApiTags('Excel Parser')
 @Controller('excelparser')
 export class ExcelparserController {
-  constructor(private readonly excelparserService: ExcelparserService) {}
+  constructor(
+    private readonly excelparserService: ExcelparserService,
+    private readonly teachersService: TeachersService,
+    private readonly subjectsService: SubjectsService,
+    private readonly teachingAssignmentsService: TeachingAssignmentsService,
+  ) {}
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -34,19 +43,27 @@ export class ExcelparserController {
     },
   })
   async uploadExcel(@UploadedFile() file: Express.Multer.File) {
-
     return await this.excelparserService.parseExcelFile(file);
   }
 
-  @Get('teacher-data')
-  getTeacherData(@Res() res: Response) {
-    const outputFilePath = 'teacher_data.json';
+  @Get('upload')
+  getUploadPage(@Res() res: Response) {
+    const filePath = join(__dirname, '..', '..', 'public', 'upload.html');
+    res.sendFile(filePath);
+  }
 
-    if (fs.existsSync(outputFilePath)) {
-      const fileContent = fs.readFileSync(outputFilePath, 'utf-8');
-      return res.json(JSON.parse(fileContent));
-    } else {
-      return res.status(404).json({ message: 'Файл не знайдено' });
-    }
+  @Post('finalize')
+  @ApiOperation({ summary: 'Finalize import after manual confirmation' })
+  async finalizeImport(@Body() body: { parsedData: any[] }) {
+    const teachersImportResults = await this.teachersService.importFromJson(body.parsedData);
+    const subjectsImportResults = await this.subjectsService.importFromJson(body.parsedData);
+    const teachingAssignmentsImportResults = await this.teachingAssignmentsService.importFromJson(body.parsedData);
+
+    return {
+      success: true,
+      teachersImportResults,
+      subjectsImportResults,
+      teachingAssignmentsImportResults,
+    };
   }
 }

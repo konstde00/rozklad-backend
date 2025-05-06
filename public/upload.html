@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Завантажити файл для парсингу</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .upload-form input[type="file"] {
+            margin: 10px;
+        }
+
+        .upload-form button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .upload-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Завантажити файл для парсингу</h1>
+    <form class="upload-form" id="uploadForm">
+        <input type="file" id="fileInput" name="file" accept=".xlsx, .xls, .csv" required>
+        <button type="submit">Завантажити</button>
+    </form>
+
+    <div id="output" style="margin-top: 20px; font-family: Arial, sans-serif;"></div>
+
+    <script>
+        function renderTeacher(teacher) {
+            return `
+                <h3>Ім'я викладача: ${teacher.teacherName}</h3>
+                <p>Предмет: ${teacher.subject}</p>
+                <p>Курс: ${teacher.courseNumber}</p>
+                <p>Лекції: ${teacher.lec}</p>
+                <p>Лабораторні: ${teacher.lab}</p>
+                <p>Семінари: ${teacher.sem}</p>
+                <p>Практичні: ${teacher.pract}</p>
+                <hr>
+            `;
+        }
+
+        function processSimilarPairs(pairs, type) {
+                const replacements = {};
+                for (const { str1, str2 } of pairs) {
+                    let choice;
+                    while (choice !== "1" && choice !== "2") {
+                        choice = prompt(
+                            `Виявлено схожі ${type}:\n1. "${str1}"\n2. "${str2}"\n\nВведіть номер назви, яку бажаєте залишити:`
+                        );
+                    }
+
+                    if (choice === "1") {
+                        replacements[str2] = str1;
+                    } else {
+                        replacements[str1] = str2;
+                    }
+                }
+                return replacements;
+            }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('http://localhost:3001/excelparser/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Помилка завантаження файлу');
+
+                const { parsedData, missingLoadSubjects, similarSubjects, similarTeachers } = await response.json();
+
+                const outputDiv = document.getElementById('output');
+                const subjectReplacements = processSimilarPairs(similarSubjects, 'предмети');
+                const teacherReplacements = processSimilarPairs(similarTeachers, 'викладачі');
+
+                // Застосування замін
+                const finalizedData = parsedData.map(item => {
+                    const updated = { ...item };
+                    if (subjectReplacements[updated.subject]) {
+                        updated.subject = subjectReplacements[updated.subject];
+                    }
+                    if (teacherReplacements[updated.teacherName]) {
+                        updated.teacherName = teacherReplacements[updated.teacherName];
+                    }
+                    return updated;
+                });
+
+                outputDiv.innerHTML = ''; // очищення вже після замін
+
+
+                for (const teacher of missingLoadSubjects) {
+                    const confirmed = confirm(`Викладач ${teacher.teacherName} не має навантаження з предмету "${teacher.subject}". Бажаєте додати вручну?`);
+                    if (confirmed) {
+                        const lec = parseInt(prompt("Кількість годин лекцій:", "0")) || 0;
+                        const lab = parseInt(prompt("Кількість годин лабораторних:", "0")) || 0;
+                        const sem = parseInt(prompt("Кількість годин семінарів:", "0")) || 0;
+                        const pract = parseInt(prompt("Кількість годин практичних:", "0")) || 0;
+
+                        finalizedData.push({
+                            ...teacher,
+                            lec,
+                            lab,
+                            sem,
+                            pract
+                        });
+                    }
+                }
+
+                // Відображення результату
+                finalizedData.forEach(teacher => {
+                    outputDiv.innerHTML += renderTeacher(teacher);
+                });
+
+                // Надсилання фінальних даних
+                const saveResponse = await fetch('http://localhost:3001/excelparser/finalize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ parsedData: finalizedData })
+                });
+
+                if (!saveResponse.ok) throw new Error('Помилка при збереженні даних');
+                alert("Імпорт завершено успішно!");
+
+            } catch (error) {
+                alert(error.message);
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+
+</html>
