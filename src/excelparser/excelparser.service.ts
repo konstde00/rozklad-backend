@@ -7,9 +7,9 @@ import { TeachingAssignmentsService } from '../teachingAssignments/teaching-assi
 @Injectable()
 export class ExcelparserService {
   constructor(
-    private readonly teachersService: TeachersService,
-    private readonly subjectsService: SubjectsService,
-    private readonly teachingAssignmentsService: TeachingAssignmentsService,
+    public readonly teachersService: TeachersService,
+    public readonly subjectsService: SubjectsService,
+    public readonly teachingAssignmentsService: TeachingAssignmentsService,
   ) {}  
 
   async parseExcelFile(file: Express.Multer.File): Promise<any> {
@@ -97,8 +97,6 @@ export class ExcelparserService {
 
   rowIndex++;
 }
-
-
     for (const subjectData of subjects) {
   const isZeroLoad =
     subjectData.lek === 0 &&
@@ -118,11 +116,26 @@ export class ExcelparserService {
     facultyName: subjectData.facultyName,
   };
 
-  if (isZeroLoad) {
+    if (isZeroLoad) {
     missingLoadSubjects.push(subjectEntry);
   } else {
-    parsedData.push(subjectEntry);
+    const existing = parsedData.find((entry) =>
+      entry.teacherName === subjectEntry.teacherName &&
+      entry.subject === subjectEntry.subject &&
+      entry.courseNumber === subjectEntry.courseNumber &&
+      entry.specialityCode === subjectEntry.specialityCode
+    );
+
+    if (existing) {
+      existing.lec += subjectEntry.lec;
+      existing.lab += subjectEntry.lab;
+      existing.sem += subjectEntry.sem;
+      existing.pract += subjectEntry.pract;
+    } else {
+      parsedData.push(subjectEntry);
+    }
   }
+
 }
 
   });
@@ -164,7 +177,7 @@ const similarTeachers = findSimilarStrings.call(this, [...new Set(allTeachers)])
 
   }
   
-  private getLevenshteinDistance(a: string, b: string): number {
+  public getLevenshteinDistance(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, () =>
     Array(b.length + 1).fill(0)
   );
@@ -183,10 +196,7 @@ const similarTeachers = findSimilarStrings.call(this, [...new Set(allTeachers)])
     }
     }
     
-
-
   return dp[a.length][b.length];
 }
-
 
 }
