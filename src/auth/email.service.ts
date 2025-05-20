@@ -16,9 +16,9 @@ export class EmailService {
       const response = await this.client.sendEmail({
         From: this.configService.get<string>('EMAIL_FROM') || 'denast@knu.ua',
         To: email,
-        Subject: 'Todo App sign up',
+        Subject: 'ZruchnoRozklad sign up',
         TextBody: `To confirm your signup, input this code: ${code}`,
-        MessageStream: 'outbound',
+        MessageStream: 'broadcast',
       });
       console.log('Code:', code);
       console.log('Email sent successfully:', response);
